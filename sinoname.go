@@ -30,8 +30,11 @@ func New(conf *Config, layerFacts ...LayerFactory) *Generator {
 		preventDefault: conf.PreventDefault,
 	}
 
-	var layers []*Layer
+	var layers []Layer
 	for _, layerFact := range layerFacts {
+		if layerFact == nil {
+			continue
+		}
 		l := layerFact(conf)
 		layers = append(layers, l)
 	}
