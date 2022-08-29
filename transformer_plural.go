@@ -1,7 +1,7 @@
 package sinoname
 
-var Plural = func(cfg *Config) *Layer {
-	layer := &Layer{
+var Plural = func(cfg *Config) Layer {
+	layer := &transformerLayer{
 		cfg:          cfg,
 		transformers: make([]Transformer, 1),
 	}

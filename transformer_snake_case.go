@@ -4,8 +4,8 @@ var snakeCaseMap map[rune][]rune = map[rune][]rune{
 	' ': {'_'},
 }
 
-var SnakeCase = func(cfg *Config) *Layer {
-	layer := &Layer{
+var SnakeCase = func(cfg *Config) Layer {
+	layer := &transformerLayer{
 		cfg:          cfg,
 		transformers: make([]Transformer, 1),
 	}

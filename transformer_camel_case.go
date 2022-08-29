@@ -5,8 +5,8 @@ import (
 	"unicode"
 )
 
-var CamelCase = func(cfg *Config) *Layer {
-	layer := &Layer{
+var CamelCase = func(cfg *Config) Layer {
+	layer := &transformerLayer{
 		cfg:          cfg,
 		transformers: make([]Transformer, 1),
 	}
