@@ -98,14 +98,3 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 
 // LayerFactory creates a new layer with the given config.
 type LayerFactory func(cfg *Config) Layer
-
-// Pack merges n transformer or proxy layers into one singel layer, when a message is recieved by the layer it gets
-// distributed to all the transformers it has.
-//
-// WARNING: pack returns nil when called with different types of layers, it only works with transformer
-// layers or proxy layers.
-func Pack(layerFacts ...LayerFactory) LayerFactory {
-	return func(cfg *Config) Layer {
-
-	}
-}
