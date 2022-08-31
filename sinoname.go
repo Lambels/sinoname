@@ -7,6 +7,9 @@ import (
 
 // Generator provides extra functionality on top of the layers.
 type Generator struct {
+	// kept a copy for factory functions.
+	cfg *Config
+
 	// preventDefault is used to process the data from the layers and omit the default value.
 	preventDefault bool
 
@@ -23,22 +26,55 @@ type Generator struct {
 }
 
 // New creates a new generator with the provided config and Layer factories.
-func New(conf *Config, layerFacts ...LayerFactory) *Generator {
+func New(conf *Config) *Generator {
 	g := &Generator{
+		cfg:            conf,
 		maxLen:         conf.MaxLen,
 		maxVals:        conf.MaxVals,
 		preventDefault: conf.PreventDefault,
 	}
 
-	var layers []Layer
-	for _, layerFact := range layerFacts {
-		if layerFact == nil {
-			continue
-		}
-		l := layerFact(conf)
-		layers = append(layers, l)
+	return g
+}
+
+func (g *Generator) WithTransformers(tFact ...TransformerFactory) *Generator {
+	tLayer := &TransformerLayer{
+		transformers: make([]Transformer, len(tFact)),
 	}
-	g.layers = layers
+
+	for i, f := range tFact {
+		t := f(g.cfg)
+		tLayer.transformers[i] = t
+	}
+	g.layers = append(g.layers, tLayer)
+
+	return g
+}
+
+// WithProxys creates a new proxy layer and adds it to the generator which fans in all messages
+// from the parent layer and runs the proxy functions on each message.
+//
+// For a message to pass through the proxy layer it must pass through all the proxy functions
+// without returning any error, else the message is just consumed from the upstream layer
+// and not sent further.
+func (g *Generator) WithProxys(pFact ...ProxyFactory) *Generator {
+	pLayer := &ProxyLayer{
+		proxys: make([]ProxyFunc, len(pFact)),
+	}
+
+	for i, f := range pFact {
+		t := f(g.cfg)
+		pLayer.proxys[i] = t
+	}
+	g.layers = append(g.layers, pLayer)
+	return g
+}
+
+func (g *Generator) WithLayers(lFact ...LayerFactory) *Generator {
+	for _, f := range lFact {
+		l := f(g.cfg)
+		g.layers = append(g.layers, l)
+	}
 
 	return g
 }
