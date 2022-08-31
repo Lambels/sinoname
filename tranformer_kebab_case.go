@@ -4,16 +4,11 @@ var kebabCaseMap map[rune][]rune = map[rune][]rune{
 	' ': {'-'},
 }
 
-var KebabCase = func(cfg *Config) *Layer {
-	layer := &Layer{
-		cfg:          cfg,
-		transformers: make([]Transformer, 1),
-	}
-	layer.transformers[0] = &kebabCaseTransformer{
+var KebabCase = func(cfg *Config) Transformer {
+	return &kebabCaseTransformer{
 		maxLen: cfg.MaxLen,
 		source: cfg.Source,
 	}
-	return layer
 }
 
 type kebabCaseTransformer struct {

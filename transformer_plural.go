@@ -1,15 +1,10 @@
 package sinoname
 
-var Plural = func(cfg *Config) Layer {
-	layer := &transformerLayer{
-		cfg:          cfg,
-		transformers: make([]Transformer, 1),
-	}
-	layer.transformers[0] = &pluralTransformer{
+var Plural = func(cfg *Config) Transformer {
+	return &pluralTransformer{
 		maxLen: cfg.MaxLen,
 		source: cfg.Source,
 	}
-	return layer
 }
 
 type pluralTransformer struct {

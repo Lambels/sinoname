@@ -5,16 +5,11 @@ import (
 	"unicode"
 )
 
-var CamelCase = func(cfg *Config) Layer {
-	layer := &transformerLayer{
-		cfg:          cfg,
-		transformers: make([]Transformer, 1),
-	}
-	layer.transformers[0] = &camelCaseTransformer{
+var CamelCase = func(cfg *Config) Transformer {
+	return &camelCaseTransformer{
 		maxLen: cfg.MaxLen,
 		source: cfg.Source,
 	}
-	return layer
 }
 
 type camelCaseTransformer struct {

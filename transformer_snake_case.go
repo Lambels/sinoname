@@ -4,16 +4,11 @@ var snakeCaseMap map[rune][]rune = map[rune][]rune{
 	' ': {'_'},
 }
 
-var SnakeCase = func(cfg *Config) Layer {
-	layer := &transformerLayer{
-		cfg:          cfg,
-		transformers: make([]Transformer, 1),
-	}
-	layer.transformers[0] = &snakeCaseTransformer{
+var SnakeCase = func(cfg *Config) Transformer {
+	return &snakeCaseTransformer{
 		maxLen: cfg.MaxLen,
 		source: cfg.Source,
 	}
-	return layer
 }
 
 type snakeCaseTransformer struct {
