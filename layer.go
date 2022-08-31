@@ -96,5 +96,11 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	return fanInC, clnUp, nil
 }
 
-// LayerFactory creates a new layer with the given config.
+// LayerFactory takes in a config object and returns a new layer.
 type LayerFactory func(cfg *Config) Layer
+
+// TransformerFactory takes in a config object and returns a transformer.
+type TransformerFactory func(cfg *Config) Transformer
+
+// ProxyFactory takes in a config object and returns a proxy function.
+type ProxyFactory func(cfg *Config) ProxyFunc
