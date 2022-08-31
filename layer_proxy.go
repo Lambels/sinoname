@@ -23,29 +23,15 @@ var ErrQuit error = errors.New("sinoname: abort process")
 // If the error is nil: the message is passed to further proxy functions.
 type ProxyFunc func(string) error
 
-// NewProxyLayer creates a new proxy layer which fans in all messages
-// from the parent layer and runs the proxy functions on each message.
-//
-// For a message to pass through the proxy layer it must pass through all the proxy functions
-// without returning any error, else the message is just consumed from the upstream layer
-// and not sent further.
-func NewProxyLayer(proxys ...ProxyFunc) LayerFactory {
-	return func(_ *Config) Layer {
-		return &proxyLayer{
-			proxys: proxys,
-		}
-	}
-}
-
-// proxyLayer holds all the proxy funcs it has, for a message to pass a proxy layer it must run
+// ProxyLayer holds all the proxy funcs it has, for a message to pass a proxy layer it must run
 // through all the proxys without any error.
-type proxyLayer struct {
+type ProxyLayer struct {
 	proxys []ProxyFunc
 }
 
 // PumpOut recieves messages from the upstream layer via the in channel and passes them through the transformers.
 // The end products of the transformers are fed in the returned channel.
-func (l *proxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan string) (<-chan string, error) {
+func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan string) (<-chan string, error) {
 	outC := make(chan string)
 
 	if len(l.proxys) == 0 {
