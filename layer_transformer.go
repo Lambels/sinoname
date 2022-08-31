@@ -13,18 +13,14 @@ import (
 //
 // teoretically 1 message to a layer with 4 transformers results in 4 messages. 1 * 4
 // the output formula of each layer is sum(messages from up stream layer) * len(transformers)
-type transformerLayer struct {
-	// cfg points to the config it belongs to.
-	// used to access meta data.
-	cfg *Config
-
+type TransformerLayer struct {
 	// transformers is the transformers which get run for each message from the upstream channel.
 	transformers []Transformer
 }
 
 // PumpOut recieves messages from the upstream layer via the in channel and passes them through the transformers.
 // The end products of the transformers are fed in the returned channel.
-func (l *transformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan string) (<-chan string, error) {
+func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan string) (<-chan string, error) {
 	outC := make(chan string)
 
 	if len(l.transformers) == 0 {
