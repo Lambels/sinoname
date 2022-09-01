@@ -12,10 +12,6 @@ type Config struct {
 	// PreventDefault prevents the default value from being recovered.
 	PreventDefault bool
 
-	// Fallback is used to check if the raw initial value should pass through all the stages
-	// or if the value should be returned as soon as possible.
-	Fallback bool
-
 	// Source is used to validate if the products of the shuffle are unique / valid.
 	Source Source
 }
