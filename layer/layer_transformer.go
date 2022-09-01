@@ -22,12 +22,11 @@ type TransformerLayer struct {
 // PumpOut recieves messages from the upstream layer via the in channel and passes them through the transformers.
 // The end products of the transformers are fed in the returned channel.
 func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan string) (<-chan string, error) {
-	outC := make(chan string)
-
 	if len(l.Transformers) == 0 {
 		return nil, errors.New("sinoname: layer has no transformers")
 	}
 
+	outC := make(chan string)
 	// wg is used to monitor the local go routines of this layer.
 	var wg sync.WaitGroup
 	pumpOut := func(ctx context.Context, t transformer.Transformer, v string) func() error {
