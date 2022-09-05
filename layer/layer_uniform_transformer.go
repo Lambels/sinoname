@@ -47,6 +47,10 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 		defer func() {
 			defer close(outC)
 
+			if ctx.Err() != nil {
+				buf.flush()
+				return
+			}
 			wg.Wait()
 		}()
 
@@ -107,10 +111,10 @@ func (b *syncBuffer) write(val string) {
 	defer b.c.L.Unlock()
 
 	b.buf = append(b.buf, val)
-	// last value written
+	// last value written.
 	if len(b.buf) == b.nWriters {
 		// share the values.
-		b.share()
+		b.flush()
 		// wake up other writers.
 		b.c.Broadcast()
 		return
@@ -119,8 +123,7 @@ func (b *syncBuffer) write(val string) {
 	b.c.Wait()
 }
 
-// share must be called with an aquired lock.
-func (b *syncBuffer) share() {
+func (b *syncBuffer) flush() {
 	for _, v := range b.buf {
 		b.ch <- v
 	}
