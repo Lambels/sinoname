@@ -19,23 +19,36 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 	}
 
 	outC := make(chan string)
-	buf := newSyncBuf(len(l.Transformers))
+	buf := newSyncBuf(len(l.Transformers), outC)
 
-	pumpOutOnSync := func(ctx context.Context) {
-		for {
+	// wg is used to monitor the local go routines of this layer.
+	var wg sync.WaitGroup
+	// pumpToBuf pumps messages to the sync buffer to be dispatched in batches.
+	pumpToBuf := func(ctx context.Context, t transformer.Transformer, v string) func() error {
+		f := func() error {
+			defer wg.Done()
+			val, err := t.Transform(v)
+			if err != nil {
+				return err
+			}
+
 			select {
 			case <-ctx.Done():
-				return
-			}
-
-			vals := buf.sync()
-			for _, v := range vals {
-				outC <- v
+				return ctx.Err()
+			case <-buf.writeWithSignal(val):
+				return nil
 			}
 		}
+
+		return f
 	}
 
 	go func() {
+		defer func() {
+			defer close(outC)
+
+			wg.Wait()
+		}()
 
 		for {
 			select {
@@ -46,50 +59,68 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 					return
 				}
 
-				// generate the value in local buffer.
+				wg.Add(len(l.Transformers))
+				for _, t := range l.Transformers {
+					g.Go(
+						pumpToBuf(ctx, t, v),
+					)
+				}
 			}
 		}
 	}()
+
+	return outC, nil
 }
 
-type token struct{}
-
-type syncFlushBuffer struct {
-	sem chan token
-	wg  sync.WaitGroup
-	buf []string
+type syncBuffer struct {
+	nWriters int
+	c        *sync.Cond
+	ch       chan<- string
+	buf      []string
 }
 
-func newSyncBuf(maxBuf int) *syncFlushBuffer {
-	b := &syncFlushBuffer{
-		sem: make(chan token, maxBuf),
-		buf: make([]string, 0),
+func newSyncBuf(n int, out chan<- string) *syncBuffer {
+	b := &syncBuffer{
+		nWriters: n,
+		c:        sync.NewCond(&sync.Mutex{}),
+		ch:       out,
+		buf:      make([]string, 0),
 	}
 	return b
 }
 
-func (b *syncFlushBuffer) send(val string) {
-	b.sem <- token{}
+func (b *syncBuffer) writeWithSignal(val string) <-chan struct{} {
+	ch := make(chan struct{})
+
+	go func() {
+		b.write(val)
+		ch <- struct{}{}
+	}()
+
+	return ch
+}
+
+func (b *syncBuffer) write(val string) {
+	b.c.L.Lock()
+	defer b.c.L.Unlock()
 
 	b.buf = append(b.buf, val)
-	if len(b.sem) == cap(b.sem) {
-		b.wg.Done()
+	// last value written
+	if len(b.buf) == b.nWriters {
+		// share the values.
+		b.share()
+		// wake up other writers.
+		b.c.Broadcast()
 		return
 	}
 
-	b.wg.Wait()
+	b.c.Wait()
 }
 
-func (b *syncFlushBuffer) sync() []string {
-	b.wg.Wait()
-
-	bufCopy := make([]string, len(b.buf))
-	copy(bufCopy, b.buf)
-	b.buf = b.buf[:0]
-
-	b.wg.Add(1)
-	for len(b.sem) > 0 {
-		<-b.sem
+// share must be called with an aquired lock.
+func (b *syncBuffer) share() {
+	for _, v := range b.buf {
+		b.ch <- v
 	}
-	return bufCopy
+	b.buf = b.buf[:0]
 }
