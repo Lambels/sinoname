@@ -18,7 +18,7 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 		return nil, errors.New("sinoname: layer has no transformers")
 	}
 
-	outC := make(chan string)
+	outC := make(chan string, len(l.Transformers))
 	buf := newSyncBuf(len(l.Transformers), outC)
 
 	// wg is used to monitor the local go routines of this layer.
@@ -59,6 +59,8 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 					return
 				}
 
+				// wait for past values to be syncronised.
+				wg.Wait()
 				wg.Add(len(l.Transformers))
 				for _, t := range l.Transformers {
 					g.Go(
