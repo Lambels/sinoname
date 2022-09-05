@@ -69,7 +69,7 @@ func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
 
 			select {
 			case <-sink:
-				// value recieved.
+				// values still recieved even if producer closed.
 			case <-time.After(3 * time.Second):
 				t.Fatal("values should be available at around 2 seconds")
 			}
@@ -79,7 +79,37 @@ func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
 
 func TestUniformLayerCloseCtx(t *testing.T) {
 	t.Run("Manual", func(t *testing.T) {
+		t.Parallel()
+		layer := newUniformLayer(
+			timeoutTransformer{add: "1", d: 1 * time.Microsecond},
+			timeoutTransformer{add: "2", d: 2 * time.Second},
+		)
 
+		producer := make(chan string, 2)
+		producer <- ""
+		producer <- ""
+
+		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+		defer cancel()
+
+		sink, err := layer.PumpOut(ctx, &errgroup.Group{}, producer)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		<-ctx.Done()
+		select {
+		case v := <-sink:
+			if v != "1" {
+				t.Fatal("expected buffer to be flushed")
+			}
+			if _, ok := <-sink; ok {
+				t.Fatal("expected channel to be closed")
+			}
+
+		case <-time.After(2 * time.Second):
+			t.Fatal("buffer should be flushed")
+		}
 	})
 
 	t.Run("Error", func(t *testing.T) {
@@ -118,7 +148,7 @@ func TestUniformBatch(t *testing.T) {
 		v2 := <-sink
 
 		if v1 == v2 {
-			t.Fatal("the values must be different")
+			t.Fatal("recieved values must be different")
 		}
 	}
 
