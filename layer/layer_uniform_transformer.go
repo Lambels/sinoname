@@ -104,8 +104,8 @@ func (b *syncBuffer) flush() {
 }
 
 // messageBroadcast takes responsability of layer source and broadcasts it to all the
-// transformers returning a channel to read the results from which is buffered so that
-// the layer doesent waist time, it instead prepares values for the next synced write.
+// transformers returning a channel which is buffered to read the results from so that
+// the layer doesent waste time, it instead prepares values for the next synced write.
 type messageBroadcast struct {
 	source    <-chan string
 	wg        sync.WaitGroup
