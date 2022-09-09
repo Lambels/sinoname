@@ -82,7 +82,7 @@ func TestUniformLayerCloseCtx(t *testing.T) {
 		t.Parallel()
 		layer := newUniformLayer(
 			timeoutTransformer{add: "1", d: 1 * time.Microsecond},
-			timeoutTransformer{add: "2", d: 2 * time.Second},
+			timeoutTransformer{add: "2", d: 10 * time.Second},
 		)
 
 		producer := make(chan string, 2)
@@ -98,22 +98,43 @@ func TestUniformLayerCloseCtx(t *testing.T) {
 		}
 
 		<-ctx.Done()
+
 		select {
-		case v := <-sink:
-			if v != "1" {
-				t.Fatal("expected buffer to be flushed")
-			}
-			if _, ok := <-sink; ok {
-				t.Fatal("expected channel to be closed")
+		case _, ok := <-sink:
+			if ok {
+				t.Fatal("sink isnt closed")
 			}
 
-		case <-time.After(2 * time.Second):
-			t.Fatal("buffer should be flushed")
+		case <-time.After(1 * time.Second):
+			t.Fatal("sink should be closed")
 		}
 	})
 
 	t.Run("Error", func(t *testing.T) {
+		t.Parallel()
+		layer := newUniformLayer(
+			errTransformer{},
+			timeoutTransformer{add: "1", d: 1 * time.Second},
+		)
 
+		producer := make(chan string, 1)
+		producer <- ""
+
+		g, errCtx := errgroup.WithContext(context.Background())
+		sink, err := layer.PumpOut(errCtx, g, producer)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		select {
+		case _, ok := <-sink:
+			if ok {
+				t.Fatal("sink isnt closed")
+			}
+
+		case <-time.After(1 * time.Second):
+			t.Fatal("sink should be closed")
+		}
 	})
 }
 
