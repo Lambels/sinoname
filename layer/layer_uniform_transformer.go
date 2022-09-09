@@ -20,20 +20,12 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 
 	outC := make(chan string, len(l.Transformers))
 	buf := newSyncBuf(len(l.Transformers), outC)
-	broadcast := &messageBroadcast{
-		source:    in,
-		g:         g,
-		listeners: make([]chan string, 0),
-	}
+	broadcast := newMessageBroadcast(ctx, in, g, buf)
 
 	pumpToBuf := func(in <-chan string) {
-		for {
-			val, ok := <-in
-			if !ok {
-				return
-			}
-
+		for val := range in {
 			// blocks till all the other pumps have wrote their message.
+			// once the buffer is closed, the write value wont block.
 			buf.write(val)
 		}
 	}
@@ -44,7 +36,7 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 		go pumpToBuf(tOut)
 	}
 
-	go broadcast.start(ctx)
+	go broadcast.start()
 
 	return outC, nil
 }
@@ -72,6 +64,7 @@ func (b *syncBuffer) close() {
 	defer b.c.L.Unlock()
 
 	b.isClosed = true
+	close(b.ch)
 	b.c.Broadcast()
 }
 
@@ -96,6 +89,7 @@ func (b *syncBuffer) write(val string) {
 	b.c.Wait()
 }
 
+// must be called with an aquired lock.
 func (b *syncBuffer) flush() {
 	for _, v := range b.buf {
 		b.ch <- v
@@ -108,29 +102,52 @@ func (b *syncBuffer) flush() {
 // the layer doesent waste time, it instead prepares values for the next synced write.
 type messageBroadcast struct {
 	source    <-chan string
+	buf       *syncBuffer
 	wg        sync.WaitGroup
 	g         *errgroup.Group
-	listeners []chan string
+	ctx       context.Context
+	listeners []chan<- string
+}
+
+func newMessageBroadcast(ctx context.Context, source <-chan string, g *errgroup.Group, buf *syncBuffer) *messageBroadcast {
+	return &messageBroadcast{
+		source:    source,
+		buf:       buf,
+		g:         g,
+		ctx:       ctx,
+		listeners: make([]chan<- string, 0),
+	}
+
 }
 
 // register must be called before starting the service.
 func (m *messageBroadcast) register(t transformer.Transformer) <-chan string {
 	outC := make(chan string, 10) // buffer to prevent blocking.
 	inC := make(chan string)
+	m.listeners = append(m.listeners, inC)
 
-	m.g.Go(m.handleTransformer(inC, outC, t))
+	go m.handleTransformer(inC, outC, t)
 
 	return outC
 }
 
-func (m *messageBroadcast) start(ctx context.Context) {
-	// defer func() {
+func (m *messageBroadcast) start() {
+	defer func() {
+		defer m.buf.close()
+		// close all listeners -> close all transformer handlers.
+		// the handlers will wait in their go routines for the buffer to accept values.
+		m.close()
 
-	// }
+		if m.ctx.Err() != nil {
+			return
+		}
+
+		m.wg.Wait()
+	}()
 
 	for {
 		select {
-		case <-ctx.Done():
+		case <-m.ctx.Done():
 			return
 
 		case val, ok := <-m.source:
@@ -141,7 +158,7 @@ func (m *messageBroadcast) start(ctx context.Context) {
 			for _, listener := range m.listeners {
 				select {
 				case listener <- val:
-				case <-ctx.Done():
+				case <-m.ctx.Done():
 					return
 				}
 			}
@@ -149,10 +166,39 @@ func (m *messageBroadcast) start(ctx context.Context) {
 	}
 }
 
-func (m *messageBroadcast) handleTransformer(in <-chan string, out chan<- string, t transformer.Transformer) func() error {
-	f := func() error {
+func (m *messageBroadcast) handleTransformer(in <-chan string, out chan<- string, t transformer.Transformer) {
+	defer func() {
+		m.wg.Wait()
+		close(out)
+	}()
 
+	for val := range in {
+		m.wg.Add(1)
+		m.g.Go(m.pumpToOut(val, t, out))
+	}
+}
+
+func (m *messageBroadcast) pumpToOut(val string, t transformer.Transformer, out chan<- string) func() error {
+	f := func() error {
+		defer m.wg.Done()
+		select {
+		case <-m.ctx.Done():
+			return nil
+		case sig := <-transformer.TransformWithSignal(t, val):
+			if sig.Err != nil {
+				return sig.Err
+			}
+			out <- sig.Val
+		}
+
+		return nil
 	}
 
 	return f
+}
+
+func (m *messageBroadcast) close() {
+	for _, listener := range m.listeners {
+		close(listener)
+	}
 }
