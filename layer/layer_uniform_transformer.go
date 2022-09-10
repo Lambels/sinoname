@@ -9,6 +9,19 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// UniformTransformerLayer syncronises writes to the the downsream layer whilst not blocking
+// the upstream layer.
+//
+// UniformTransformerLayer should be used when having transformers with very different
+// transforming speeds. Instead of flooding the pipeline with lower speed messages from
+// faster transformers the UniformTransformerLayer waits for the slower and faster transformers
+// to write at the same time.
+//
+// Even though the layer waits for the messages to be written at the same time it doesent
+// "sleep". Each transformer has a buffer so that when new messages come and a previous
+// message is synced, the layer doesent wait for the previous message to be synced, it takes
+// the new message, processes it and then writes it to the buffer. When the previous message
+// is synced the layer pulls messages from each transformers buffer and syncs them.
 type UniformTransformerLayer struct {
 	Transformers []transformer.Transformer
 }
@@ -20,20 +33,29 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 
 	outC := make(chan string, len(l.Transformers))
 	buf := newSyncBuf(len(l.Transformers), outC)
-	broadcast := newMessageBroadcast(ctx, in, g, buf)
+	// this wg is shared by the message broadcaster and message consumer,
+	// the broadcaster increments it whilst the consumer decrements it.
+	//
+	// this allows the broadcaster to wait for messages to be written to the sync buffer
+	// before closing it.
+	wg := &sync.WaitGroup{}
+	broadcast := newMessageBroadcast(ctx, in, g, buf, wg)
 
-	pumpToBuf := func(in <-chan string) {
-		for val := range in {
+	// go routine which reads from pumpIn channel buffer and writes to the sync buffer,
+	// once the value is written the wg is decremented.
+	pumpToBuf := func(pumpIn <-chan string, wg *sync.WaitGroup) {
+		for val := range pumpIn {
 			// blocks till all the other pumps have wrote their message.
 			// once the buffer is closed, the write value wont block.
 			buf.write(val)
+			wg.Done()
 		}
 	}
 
 	// register transformers for broadcast.
 	for _, t := range l.Transformers {
 		tOut := broadcast.register(t)
-		go pumpToBuf(tOut)
+		go pumpToBuf(tOut, wg)
 	}
 
 	go broadcast.start()
@@ -41,12 +63,15 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 	return outC, nil
 }
 
+// syncBuffer waits for nWriters to write their value via the (*syncBuffer).write(),
+// each writer should call the write function in its own go-routine.
 type syncBuffer struct {
 	nWriters int
 	isClosed bool
-	c        *sync.Cond
-	ch       chan<- string
-	buf      []string
+	// monitor isClosed and buf values.
+	c   *sync.Cond
+	ch  chan<- string
+	buf []string
 }
 
 func newSyncBuf(n int, out chan<- string) *syncBuffer {
@@ -59,6 +84,7 @@ func newSyncBuf(n int, out chan<- string) *syncBuffer {
 	return b
 }
 
+// close closes the out channel and makes write calls stop blocking and no-op.
 func (b *syncBuffer) close() {
 	b.c.L.Lock()
 	defer b.c.L.Unlock()
@@ -68,6 +94,8 @@ func (b *syncBuffer) close() {
 	b.c.Broadcast()
 }
 
+// write writes one value to the buf and then waits for the other write calls to write their
+// value then unblocks.
 func (b *syncBuffer) write(val string) {
 	b.c.L.Lock()
 	defer b.c.L.Unlock()
@@ -103,17 +131,18 @@ func (b *syncBuffer) flush() {
 type messageBroadcast struct {
 	source    <-chan string
 	buf       *syncBuffer
-	wg        sync.WaitGroup
+	wg        *sync.WaitGroup
 	g         *errgroup.Group
 	ctx       context.Context
 	listeners []chan<- string
 }
 
-func newMessageBroadcast(ctx context.Context, source <-chan string, g *errgroup.Group, buf *syncBuffer) *messageBroadcast {
+func newMessageBroadcast(ctx context.Context, source <-chan string, g *errgroup.Group, buf *syncBuffer, wg *sync.WaitGroup) *messageBroadcast {
 	return &messageBroadcast{
 		source:    source,
 		buf:       buf,
 		g:         g,
+		wg:        wg,
 		ctx:       ctx,
 		listeners: make([]chan<- string, 0),
 	}
@@ -158,6 +187,7 @@ func (m *messageBroadcast) start() {
 			for _, listener := range m.listeners {
 				select {
 				case listener <- val:
+					m.wg.Add(1)
 				case <-m.ctx.Done():
 					return
 				}
@@ -166,6 +196,7 @@ func (m *messageBroadcast) start() {
 	}
 }
 
+// handleTransformer pumps messages to the transformers out channel concurrently.
 func (m *messageBroadcast) handleTransformer(in <-chan string, out chan<- string, t transformer.Transformer) {
 	defer func() {
 		m.wg.Wait()
@@ -173,14 +204,12 @@ func (m *messageBroadcast) handleTransformer(in <-chan string, out chan<- string
 	}()
 
 	for val := range in {
-		m.wg.Add(1)
 		m.g.Go(m.pumpToOut(val, t, out))
 	}
 }
 
 func (m *messageBroadcast) pumpToOut(val string, t transformer.Transformer, out chan<- string) func() error {
 	f := func() error {
-		defer m.wg.Done()
 		select {
 		case <-m.ctx.Done():
 			return nil
