@@ -12,7 +12,7 @@ import (
 // transformerLayer holds all the transformers belonging to it, when the layer runs it fans out all the
 // messages it gets to all the transformers it owns.
 //
-// teoretically 1 message to a layer with 4 transformers results in 4 messages. 1 * 4
+// teoretically 1 message to a layer with 4 transformers results in 4 messages (1 * 4).
 // the output formula of each layer is sum(messages from up stream layer) * len(transformers)
 type TransformerLayer struct {
 	// transformers is the transformers which get run for each message from the upstream channel.
@@ -32,16 +32,22 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 	pumpOut := func(ctx context.Context, t transformer.Transformer, v string) func() error {
 		f := func() error {
 			defer wg.Done()
-			val, err := t.Transform(v)
-			if err != nil {
-				return err
-			}
 
 			select {
+			case sig := <-transformer.TransformWithSignal(t, v):
+				if sig.Err != nil {
+					return sig.Err
+				}
+
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case outC <- sig.Val:
+					return nil
+				}
+
 			case <-ctx.Done():
 				return ctx.Err()
-			case outC <- val:
-				return nil
 			}
 		}
 
@@ -53,6 +59,7 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 		// upstream's out channel closure, close the layers out channel.
 		defer func() {
 			defer close(outC)
+
 			// wait for all the transformers to send their value before closing.
 			wg.Wait()
 		}()
