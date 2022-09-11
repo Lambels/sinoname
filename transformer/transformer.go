@@ -10,7 +10,7 @@ type Signal struct {
 }
 
 func TransformWithSignal(t Transformer, val string) <-chan Signal {
-	ch := make(chan Signal)
+	ch := make(chan Signal, 1)
 
 	go func() {
 		val, err := t.Transform(val)
