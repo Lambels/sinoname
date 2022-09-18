@@ -73,14 +73,10 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	// clnUp frees all go-routines created by the layers, not calling this function can cause
 	// a memory leak.
 	clnUp := func() error {
-		// cancel the child context, may already be cancelled (error ocurred or layers finished)
+		// cancel the child context, may already be cancelled (error ocurred)
 		cancel()
 		// wait for layer go-routines to exit.
-		err := g.Wait()
-		if err == context.Canceled {
-			return nil
-		}
-		return err
+		return g.Wait()
 	}
 
 	// start layers pipeline.
