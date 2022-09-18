@@ -109,6 +109,7 @@ func (m *messageBroadcast) start() {
 
 		m.wg.Wait()
 		m.buf.close()
+		close(m.buf.ch)
 	}()
 
 	for {
