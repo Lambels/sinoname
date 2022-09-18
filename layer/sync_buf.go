@@ -29,7 +29,6 @@ func (b *syncBuffer) close() {
 	defer b.c.L.Unlock()
 
 	b.isClosed = true
-	close(b.ch)
 	b.c.Broadcast()
 }
 
