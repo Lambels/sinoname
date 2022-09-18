@@ -43,86 +43,34 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 
 	// go routine which reads from pumpIn channel buffer and writes to the sync buffer,
 	// once the value is written the wg is decremented.
-	pumpToBuf := func(pumpIn <-chan string, wg *sync.WaitGroup) {
-		for val := range pumpIn {
-			// blocks till all the other pumps have wrote their message.
-			// once the buffer is closed, the write value wont block.
-			buf.write(val)
-			wg.Done()
+	pumpToSyncBuf := func(pumpIn <-chan string, wg *sync.WaitGroup) {
+		for {
+			select {
+			case <-ctx.Done():
+				wg.Done()
+				return
+
+			case val, ok := <-pumpIn:
+				if !ok {
+					wg.Done()
+					return
+				}
+
+				buf.write(val)
+				wg.Done()
+			}
 		}
 	}
 
 	// register transformers for broadcast.
 	for _, t := range l.Transformers {
 		tOut := broadcast.register(t)
-		go pumpToBuf(tOut, wg)
+		go pumpToSyncBuf(tOut, wg)
 	}
 
 	go broadcast.start()
 
 	return outC, nil
-}
-
-// syncBuffer waits for nWriters to write their value via the (*syncBuffer).write(),
-// each writer should call the write function in its own go-routine.
-type syncBuffer struct {
-	nWriters int
-	isClosed bool
-	// monitor isClosed and buf values.
-	c   *sync.Cond
-	ch  chan<- string
-	buf []string
-}
-
-func newSyncBuf(n int, out chan<- string) *syncBuffer {
-	b := &syncBuffer{
-		nWriters: n,
-		c:        sync.NewCond(&sync.Mutex{}),
-		ch:       out,
-		buf:      make([]string, 0),
-	}
-	return b
-}
-
-// close closes the out channel and makes write calls stop blocking and no-op.
-func (b *syncBuffer) close() {
-	b.c.L.Lock()
-	defer b.c.L.Unlock()
-
-	b.isClosed = true
-	close(b.ch)
-	b.c.Broadcast()
-}
-
-// write writes one value to the buf and then waits for the other write calls to write their
-// value then unblocks.
-func (b *syncBuffer) write(val string) {
-	b.c.L.Lock()
-	defer b.c.L.Unlock()
-
-	if b.isClosed {
-		return
-	}
-
-	b.buf = append(b.buf, val)
-	// last value written.
-	if len(b.buf) == b.nWriters {
-		// share the values.
-		b.flush()
-		// wake up other writers.
-		b.c.Broadcast()
-		return
-	}
-
-	b.c.Wait()
-}
-
-// must be called with an aquired lock.
-func (b *syncBuffer) flush() {
-	for _, v := range b.buf {
-		b.ch <- v
-	}
-	b.buf = b.buf[:0]
 }
 
 // messageBroadcast takes responsability of layer source and broadcasts it to all the
@@ -147,17 +95,6 @@ func newMessageBroadcast(ctx context.Context, source <-chan string, g *errgroup.
 		listeners: make([]chan<- string, 0),
 	}
 
-}
-
-// register must be called before starting the service.
-func (m *messageBroadcast) register(t transformer.Transformer) <-chan string {
-	outC := make(chan string, 10) // buffer to prevent blocking.
-	inC := make(chan string)
-	m.listeners = append(m.listeners, inC)
-
-	go m.handleTransformer(inC, outC, t)
-
-	return outC
 }
 
 func (m *messageBroadcast) start() {
@@ -194,6 +131,17 @@ func (m *messageBroadcast) start() {
 			}
 		}
 	}
+}
+
+// register must be called before starting the service.
+func (m *messageBroadcast) register(t transformer.Transformer) <-chan string {
+	outC := make(chan string, 10) // buffer to prevent blocking.
+	inC := make(chan string)
+	m.listeners = append(m.listeners, inC)
+
+	go m.handleTransformer(inC, outC, t)
+
+	return outC
 }
 
 // handleTransformer pumps messages to the transformers out channel concurrently.
