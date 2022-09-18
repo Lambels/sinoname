@@ -41,6 +41,20 @@ func New(conf *config.Config) *Generator {
 	return g
 }
 
+func (g *Generator) WithUniformTransformers(tFact ...layer.TransformerFactory) *Generator {
+	uLayer := &layer.UniformTransformerLayer{
+		Transformers: make([]transformer.Transformer, len(tFact)),
+	}
+
+	for i, f := range tFact {
+		t := f(g.cfg)
+		uLayer.Transformers[i] = t
+	}
+	g.layers = append(g.layers, uLayer)
+
+	return g
+}
+
 func (g *Generator) WithTransformers(tFact ...layer.TransformerFactory) *Generator {
 	tLayer := &layer.TransformerLayer{
 		Transformers: make([]transformer.Transformer, len(tFact)),
@@ -98,15 +112,25 @@ func (g *Generator) Generate(ctx context.Context, in string) ([]string, error) {
 
 	var read int
 	var vals []string
-	for val := range inC {
-		if read == g.maxVals {
-			break
+L:
+	for {
+		select {
+		// if ctx cancelled no need to call clean up.
+		case <-ctx.Done():
+			return nil, ctx.Err()
+
+		case val, ok := <-inC:
+			if read == g.maxVals || !ok {
+				break L
+			}
+
+			if g.preventDefault && val == in {
+				continue
+			}
+
+			vals = append(vals, val)
+			read++
 		}
-		if g.preventDefault && val == in {
-			continue
-		}
-		vals = append(vals, val)
-		read++
 	}
 
 	if err := clnUp(); err != nil {
