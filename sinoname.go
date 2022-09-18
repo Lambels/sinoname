@@ -120,16 +120,19 @@ L:
 			return nil, ctx.Err()
 
 		case val, ok := <-inC:
+			// increment read here so we dont have to wait for next itteration
+			// to check if we are at the last value.
+			//
+			// the next itteration can be slow.
+			read++
+			vals = append(vals, val)
+
 			if read == g.maxVals || !ok {
 				break L
 			}
-
 			if g.preventDefault && val == in {
 				continue
 			}
-
-			vals = append(vals, val)
-			read++
 		}
 	}
 
