@@ -47,12 +47,10 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 		for {
 			select {
 			case <-ctx.Done():
-				wg.Done()
 				return
 
 			case val, ok := <-pumpIn:
 				if !ok {
-					wg.Done()
 					return
 				}
 
@@ -99,16 +97,18 @@ func newMessageBroadcast(ctx context.Context, source <-chan string, g *errgroup.
 
 func (m *messageBroadcast) start() {
 	defer func() {
-		defer m.buf.close()
 		// close all listeners -> close all transformer handlers.
 		// the handlers will wait in their go routines for the buffer to accept values.
 		m.close()
 
+		// if ctx cancelled just close buffer imediately, this will clean up any go-routine.
 		if m.ctx.Err() != nil {
+			m.buf.close()
 			return
 		}
 
 		m.wg.Wait()
+		m.buf.close()
 	}()
 
 	for {
@@ -156,16 +156,29 @@ func (m *messageBroadcast) handleTransformer(in <-chan string, out chan<- string
 	}
 }
 
+// pumpToOut carries out the processing by the transformer and pumps the value to the buffered channel
+// to be read sequentially by the sync buffer go-routine.
 func (m *messageBroadcast) pumpToOut(val string, t transformer.Transformer, out chan<- string) func() error {
 	f := func() error {
 		select {
 		case <-m.ctx.Done():
-			return nil
+
 		case sig := <-transformer.TransformWithSignal(t, val):
 			if sig.Err != nil {
 				return sig.Err
 			}
-			out <- sig.Val
+
+			// dont write to out if ctx cancelled.
+			select {
+			case <-m.ctx.Done():
+				return nil
+			default:
+			}
+
+			select {
+			case <-m.ctx.Done():
+			case out <- sig.Val:
+			}
 		}
 
 		return nil
