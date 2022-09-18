@@ -34,6 +34,9 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 			defer wg.Done()
 
 			select {
+			case <-ctx.Done():
+				return nil
+
 			case sig := <-transformer.TransformWithSignal(t, v):
 				if sig.Err != nil {
 					return sig.Err
@@ -41,13 +44,10 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 
 				select {
 				case <-ctx.Done():
-					return ctx.Err()
+					return nil
 				case outC <- sig.Val:
 					return nil
 				}
-
-			case <-ctx.Done():
-				return ctx.Err()
 			}
 		}
 
@@ -58,10 +58,13 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 		// before the factory go-routine exits, either by a context cancelation or by the
 		// upstream's out channel closure, close the layers out channel.
 		defer func() {
-			defer close(outC)
+			if ctx.Err() != nil {
+				return
+			}
 
 			// wait for all the transformers to send their value before closing.
 			wg.Wait()
+			close(outC)
 		}()
 
 		for {
