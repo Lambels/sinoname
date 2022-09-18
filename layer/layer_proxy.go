@@ -38,7 +38,7 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 
 	outC := make(chan string)
 	var wg sync.WaitGroup
-	pumpOut := func(ctx context.Context, in string) func() error {
+	pumpOut := func(in string) func() error {
 		f := func() error {
 			defer wg.Done()
 
@@ -49,14 +49,14 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 						return err
 					}
 
-					// just return
+					// just return.
 					return nil
 				}
 			}
 
 			select {
 			case <-ctx.Done():
-				return ctx.Err()
+				return nil
 			case outC <- in:
 				return nil
 			}
@@ -66,7 +66,14 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 	}
 
 	go func() {
-		defer close(outC)
+		defer func() {
+			if ctx.Err() != nil {
+				return
+			}
+
+			wg.Wait()
+			close(outC)
+		}()
 
 		for {
 			select {
@@ -77,7 +84,7 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 					return
 				}
 
-				g.Go(pumpOut(ctx, v))
+				g.Go(pumpOut(v))
 			}
 		}
 	}()
