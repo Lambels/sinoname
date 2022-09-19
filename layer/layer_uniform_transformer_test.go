@@ -15,7 +15,7 @@ type timeoutTransformer struct {
 }
 
 func (t timeoutTransformer) Transform(val string) (string, error) {
-	<-time.After(t.d)
+	time.Sleep(t.d)
 	return val + t.add, nil
 }
 
@@ -100,13 +100,10 @@ func TestUniformLayerCloseCtx(t *testing.T) {
 		<-ctx.Done()
 
 		select {
-		case _, ok := <-sink:
-			if ok {
-				t.Fatal("sink isnt closed")
-			}
-
-		case <-time.After(1 * time.Second):
-			t.Fatal("sink should be closed")
+		case <-sink:
+			t.Fatal("recieved unexpected value")
+		case <-time.After(10 * time.Second):
+			// enough time for no value to be returned.
 		}
 	})
 
@@ -127,13 +124,10 @@ func TestUniformLayerCloseCtx(t *testing.T) {
 		}
 
 		select {
-		case _, ok := <-sink:
-			if ok {
-				t.Fatal("sink isnt closed")
-			}
-
+		case <-sink:
+			t.Fatal("recieved unexpected value")
 		case <-time.After(1 * time.Second):
-			t.Fatal("sink should be closed")
+			// enough time for no value to be returned.
 		}
 	})
 }
