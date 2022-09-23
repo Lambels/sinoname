@@ -9,16 +9,6 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type timeoutTransformer struct {
-	add string
-	d   time.Duration
-}
-
-func (t timeoutTransformer) Transform(val string) (string, error) {
-	time.Sleep(t.d)
-	return val + t.add, nil
-}
-
 func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
 	t.Parallel()
 	t.Run("Without Values", func(t *testing.T) {
