@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/Lambels/sinoname/config"
-	"github.com/Lambels/sinoname/transformer"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -96,9 +95,3 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 
 // LayerFactory takes in a config object and returns a new layer.
 type LayerFactory func(cfg *config.Config) Layer
-
-// TransformerFactory takes in a config object and returns a transformer.
-type TransformerFactory func(cfg *config.Config) transformer.Transformer
-
-// ProxyFactory takes in a config object and returns a proxy function.
-type ProxyFactory func(cfg *config.Config) ProxyFunc
