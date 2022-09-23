@@ -1,5 +1,7 @@
 package config
 
+import "context"
+
 // Source is an interface which should be implemented by the client, it serves the purpose
 // of validating a username and should be concurrency safe.
 //
@@ -12,5 +14,5 @@ type Source interface {
 	//
 	// If there is an error with the source the return value should be false, err.
 	// The whole pipeline is closed if the source returns an error, rendering it unreliable.
-	Valid(string) (bool, error)
+	Valid(context.Context, string) (bool, error)
 }
