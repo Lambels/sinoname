@@ -33,21 +33,16 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 		f := func() error {
 			defer wg.Done()
 
+			val, err := t.Transform(ctx, v)
+			if err != nil {
+				return err
+			}
+
 			select {
 			case <-ctx.Done():
+				return ctx.Err()
+			case outC <- val:
 				return nil
-
-			case sig := <-transformer.TransformWithSignal(t, v):
-				if sig.Err != nil {
-					return sig.Err
-				}
-
-				select {
-				case <-ctx.Done():
-					return nil
-				case outC <- sig.Val:
-					return nil
-				}
 			}
 		}
 
