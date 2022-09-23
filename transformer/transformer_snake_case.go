@@ -1,6 +1,8 @@
 package transformer
 
 import (
+	"context"
+
 	"github.com/Lambels/sinoname/config"
 	"github.com/Lambels/sinoname/helper"
 )
@@ -21,14 +23,14 @@ type snakeCaseTransformer struct {
 	source config.Source
 }
 
-func (t *snakeCaseTransformer) Transform(in string) (string, error) {
+func (t *snakeCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
 	if len(in) > t.maxLen {
 		return in, nil
 	}
 
 	split := helper.SplitOnSpecial(in)
 	out := helper.ReplaceRunes(split, snakeCaseMap)
-	if ok, err := t.source.Valid(out); !ok || err != nil {
+	if ok, err := t.source.Valid(ctx, out); !ok || err != nil {
 		return in, err
 	}
 

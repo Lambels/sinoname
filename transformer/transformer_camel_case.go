@@ -1,6 +1,7 @@
 package transformer
 
 import (
+	"context"
 	"strings"
 	"unicode"
 
@@ -20,7 +21,7 @@ type camelCaseTransformer struct {
 	source config.Source
 }
 
-func (t *camelCaseTransformer) Transform(in string) (string, error) {
+func (t *camelCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
 	if len(in) > t.maxLen {
 		return in, nil
 	}
@@ -32,7 +33,7 @@ func (t *camelCaseTransformer) Transform(in string) (string, error) {
 	}
 
 	out := strings.Join(words, "")
-	if ok, err := t.source.Valid(out); !ok || err != nil {
+	if ok, err := t.source.Valid(ctx, out); !ok || err != nil {
 		return in, err
 	}
 
