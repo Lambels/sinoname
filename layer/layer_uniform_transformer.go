@@ -161,28 +161,19 @@ func (m *messageBroadcast) handleTransformer(in <-chan string, out chan<- string
 // to be read sequentially by the sync buffer go-routine.
 func (m *messageBroadcast) pumpToOut(val string, t transformer.Transformer, out chan<- string) func() error {
 	f := func() error {
-		select {
-		case <-m.ctx.Done():
-
-		case sig := <-transformer.TransformWithSignal(t, val):
-			if sig.Err != nil {
-				return sig.Err
-			}
-
-			// dont write to out if ctx cancelled.
-			select {
-			case <-m.ctx.Done():
-				return nil
-			default:
-			}
-
-			select {
-			case <-m.ctx.Done():
-			case out <- sig.Val:
-			}
+		// err should be ctx error if context cancelled.
+		val, err := t.Transform(m.ctx, val)
+		if err != nil {
+			return err
 		}
 
-		return nil
+		// out could potentially be blocking.
+		select {
+		case <-m.ctx.Done():
+			return m.ctx.Err()
+		case out <- val:
+			return nil
+		}
 	}
 
 	return f
