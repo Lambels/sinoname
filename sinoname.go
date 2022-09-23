@@ -137,6 +137,12 @@ L:
 	}
 
 	if err := clnUp(); err != nil {
+		// this exception occurs when the maxVals value is reached and
+		// there still are live layers.
+		if err == context.Canceled {
+			return vals, err
+		}
+
 		return nil, err
 	}
 
