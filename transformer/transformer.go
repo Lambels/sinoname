@@ -1,24 +1,17 @@
 package transformer
 
+import (
+	"context"
+
+	"github.com/Lambels/sinoname/config"
+)
+
+// Transformer represents a stage of transformation over a message.
+//
+// The message comes in and comes out modified
 type Transformer interface {
-	Transform(in string) (string, error)
+	Transform(ctx context.Context, in string) (string, error)
 }
 
-type Signal struct {
-	Err error
-	Val string
-}
-
-func TransformWithSignal(t Transformer, val string) <-chan Signal {
-	ch := make(chan Signal, 1)
-
-	go func() {
-		val, err := t.Transform(val)
-		ch <- Signal{
-			Err: err,
-			Val: val,
-		}
-	}()
-
-	return ch
-}
+// TransformerFactory takes in a config object and returns a transformer.
+type TransformerFactory func(cfg *config.Config) Transformer
