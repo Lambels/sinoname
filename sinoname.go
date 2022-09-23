@@ -41,7 +41,7 @@ func New(conf *config.Config) *Generator {
 	return g
 }
 
-func (g *Generator) WithUniformTransformers(tFact ...layer.TransformerFactory) *Generator {
+func (g *Generator) WithUniformTransformers(tFact ...transformer.TransformerFactory) *Generator {
 	uLayer := &layer.UniformTransformerLayer{
 		Transformers: make([]transformer.Transformer, len(tFact)),
 	}
@@ -55,7 +55,7 @@ func (g *Generator) WithUniformTransformers(tFact ...layer.TransformerFactory) *
 	return g
 }
 
-func (g *Generator) WithTransformers(tFact ...layer.TransformerFactory) *Generator {
+func (g *Generator) WithTransformers(tFact ...transformer.TransformerFactory) *Generator {
 	tLayer := &layer.TransformerLayer{
 		Transformers: make([]transformer.Transformer, len(tFact)),
 	}
