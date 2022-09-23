@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/Lambels/sinoname/config"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -22,6 +23,9 @@ var ErrQuit error = errors.New("sinoname: abort process")
 //
 // If the error is nil: the message is passed to further proxy functions.
 type ProxyFunc func(string) error
+
+// ProxyFactory takes in a config object and returns a proxy function.
+type ProxyFactory func(cfg *config.Config) ProxyFunc
 
 // ProxyLayer holds all the proxy funcs it has, for a message to pass a proxy layer it must run
 // through all the proxys without any error.
