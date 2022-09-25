@@ -2,14 +2,11 @@ package transformer
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Lambels/sinoname/config"
 	"github.com/Lambels/sinoname/helper"
 )
-
-var snakeCaseMap map[rune][]rune = map[rune][]rune{
-	' ': {'_'},
-}
 
 var SnakeCase = func(cfg *config.Config) Transformer {
 	return &snakeCaseTransformer{
@@ -29,7 +26,7 @@ func (t *snakeCaseTransformer) Transform(ctx context.Context, in string) (string
 	}
 
 	split := helper.SplitOnSpecial(in)
-	out := helper.ReplaceRunes(split, snakeCaseMap)
+	out := strings.Join(split, "_")
 	if ok, err := t.source.Valid(ctx, out); !ok || err != nil {
 		return in, err
 	}

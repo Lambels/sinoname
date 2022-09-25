@@ -27,12 +27,11 @@ func (t *camelCaseTransformer) Transform(ctx context.Context, in string) (string
 	}
 
 	split := helper.SplitOnSpecial(in)
-	words := strings.Fields(split)
-	for i, word := range words {
-		words[i] = ucCapitalFirst(word)
+	for i, word := range split {
+		split[i] = ucCapitalFirst(word)
 	}
 
-	out := strings.Join(words, "")
+	out := strings.Join(split, "")
 	if ok, err := t.source.Valid(ctx, out); !ok || err != nil {
 		return in, err
 	}
