@@ -2,14 +2,11 @@ package transformer
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Lambels/sinoname/config"
 	"github.com/Lambels/sinoname/helper"
 )
-
-var kebabCaseMap map[rune][]rune = map[rune][]rune{
-	' ': {'-'},
-}
 
 var KebabCase = func(cfg *config.Config) Transformer {
 	return &kebabCaseTransformer{
@@ -29,7 +26,7 @@ func (t *kebabCaseTransformer) Transform(ctx context.Context, in string) (string
 	}
 
 	split := helper.SplitOnSpecial(in)
-	out := helper.ReplaceRunes(split, kebabCaseMap)
+	out := strings.Join(split, "-")
 	if ok, err := t.source.Valid(ctx, out); !ok || err != nil {
 		return in, err
 	}
