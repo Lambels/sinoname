@@ -19,7 +19,7 @@ import (
 // .A.BC , .AB.C , .ABC. , A.B.C , A.BC. , AB.C.
 //
 // Adding 3 Symbols
-// .A.B.C , .A.BC. , .AB.C.
+// .A.B.C , .A.BC. , .AB.C. , A.B.C.
 var SymbolTransformer = func(symbol string, max int) func(cfg *config.Config) Transformer {
 	return func(cfg *config.Config) Transformer {
 		if max < 0 {
