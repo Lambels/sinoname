@@ -46,7 +46,7 @@ func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, e
 	var g *combin.CombinationGenerator
 	n := len(in)
 
-	for pointsToAdd := 1; pointsToAdd < n; pointsToAdd++ {
+	for pointsToAdd := 1; pointsToAdd < n+1; pointsToAdd++ {
 		if pointsToAdd+n > t.maxLen {
 			return in, nil
 		}
@@ -55,7 +55,7 @@ func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, e
 		}
 
 		comb := make([]int, pointsToAdd)
-		g = combin.NewCombinationGenerator(n, pointsToAdd)
+		g = combin.NewCombinationGenerator(n+1, pointsToAdd)
 
 		for g.Next() {
 			select {
