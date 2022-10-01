@@ -124,11 +124,12 @@ func (m *messageBroadcast) start() {
 
 			for _, listener := range m.listeners {
 				select {
-				case listener <- val:
-					m.wg.Add(1)
 				case <-m.ctx.Done():
 					return
+				default:
 				}
+
+				listener <- val
 			}
 		}
 	}
