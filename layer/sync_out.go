@@ -20,9 +20,13 @@ type state struct {
 // flushAndNotify flushed all the buf values to out and notifies all the waiters.
 //
 // must be called with ownership to state.
-func (s *state) flushAndNotify(to chan<- string) {
+func (s *state) flushAndNotify(to chan<- string, closeC chan struct{}) {
 	for _, v := range s.buf {
-		to <- v
+		select {
+		case to <- v:
+		case <-closeC: // free the state as quick as possible in the caller by returning early.
+			return
+		}
 	}
 	s.buf = nil
 
@@ -52,7 +56,9 @@ func newSyncOut(n int, out chan<- string) *syncOut {
 
 // close closes the out channel and makes write calls stop blocking and no-op.
 func (b *syncOut) close() {
-
+	close(b.closeC)
+	<-b.stateC
+	close(b.outC)
 }
 
 // write writes one value to the buf and then waits for the other write calls to write their
@@ -71,8 +77,7 @@ func (b *syncOut) write(id int, val string) bool {
 		state.buf = append(state.buf, val)
 		// last writer, no need to block.
 		if len(state.buf) == b.nWriters {
-			//TODO: state.flushAndNotify might block.
-			state.flushAndNotify(b.outC)
+			state.flushAndNotify(b.outC, b.closeC)
 			b.stateC <- state
 			return true
 		}
