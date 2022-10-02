@@ -1,7 +1,5 @@
 package layer
 
-//TODO: semafor patern rewrite?
-
 // syncOut waits for nWriters to write their value via the (*syncOut).write(),
 // each writer should call the write function in its own go-routine.
 type syncOut struct {
