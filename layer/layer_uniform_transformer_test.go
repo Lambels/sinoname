@@ -90,10 +90,12 @@ func TestUniformLayerCloseCtx(t *testing.T) {
 		<-ctx.Done()
 
 		select {
-		case <-sink:
-			t.Fatal("recieved unexpected value")
-		case <-time.After(10 * time.Second):
-			// enough time for no value to be returned.
+		case _, ok := <-sink:
+			if ok {
+				t.Fatal("recieved unexpected non close message")
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("expected sink to be closed")
 		}
 	})
 
@@ -114,10 +116,12 @@ func TestUniformLayerCloseCtx(t *testing.T) {
 		}
 
 		select {
-		case <-sink:
-			t.Fatal("recieved unexpected value")
+		case _, ok := <-sink:
+			if ok {
+				t.Fatal("recieved unexpected non close message")
+			}
 		case <-time.After(1 * time.Second):
-			// enough time for no value to be returned.
+			t.Fatal("expected sink to be closed")
 		}
 	})
 }
