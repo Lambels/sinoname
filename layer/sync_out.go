@@ -20,6 +20,13 @@ type state struct {
 // must be called with ownership to state.
 func (s *state) flushAndNotify(to chan<- string, closeC chan struct{}) {
 	for _, v := range s.buf {
+		// potentially return faster.
+		select {
+		case <-closeC:
+			return
+		default:
+		}
+
 		select {
 		case to <- v:
 		case <-closeC: // free the state as quick as possible in the caller by returning early.
