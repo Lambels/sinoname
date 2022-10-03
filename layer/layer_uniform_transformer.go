@@ -32,18 +32,18 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 	}
 
 	outC := make(chan string, len(l.Transformers))
-	buf := newSyncBuf(len(l.Transformers), outC)
+	out := newSyncOut(len(l.Transformers), outC)
 	// this wg is shared by the message broadcaster and message consumer,
 	// the broadcaster increments it whilst the consumer decrements it.
 	//
 	// this allows the broadcaster to wait for messages to be written to the sync buffer
 	// before closing it.
 	wg := &sync.WaitGroup{}
-	broadcast := newMessageBroadcast(ctx, in, g, buf, wg)
+	broadcast := newMessageBroadcast(ctx, in, g, out, wg)
 
 	// go routine which reads from pumpIn channel buffer and writes to the sync buffer,
 	// once the value is written the wg is decremented.
-	pumpToSyncBuf := func(pumpIn <-chan string, wg *sync.WaitGroup) {
+	pumpToSyncBuf := func(pumpIn <-chan string, id int, wg *sync.WaitGroup) {
 		for {
 			select {
 			case <-ctx.Done():
@@ -54,16 +54,19 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 					return
 				}
 
-				buf.write(val)
+				next := out.write(id, val)
 				wg.Done()
+				if !next {
+					return
+				}
 			}
 		}
 	}
 
 	// register transformers for broadcast.
-	for _, t := range l.Transformers {
+	for i, t := range l.Transformers {
 		tOut := broadcast.register(t)
-		go pumpToSyncBuf(tOut, wg)
+		go pumpToSyncBuf(tOut, i, wg)
 	}
 
 	go broadcast.start()
@@ -76,17 +79,17 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 // the layer doesent waste time, it instead prepares values for the next synced write.
 type messageBroadcast struct {
 	source    <-chan string
-	buf       *syncBuffer
+	out       *syncOut
 	wg        *sync.WaitGroup
 	g         *errgroup.Group
 	ctx       context.Context
 	listeners []chan<- string
 }
 
-func newMessageBroadcast(ctx context.Context, source <-chan string, g *errgroup.Group, buf *syncBuffer, wg *sync.WaitGroup) *messageBroadcast {
+func newMessageBroadcast(ctx context.Context, source <-chan string, g *errgroup.Group, out *syncOut, wg *sync.WaitGroup) *messageBroadcast {
 	return &messageBroadcast{
 		source:    source,
-		buf:       buf,
+		out:       out,
 		g:         g,
 		wg:        wg,
 		ctx:       ctx,
@@ -103,13 +106,12 @@ func (m *messageBroadcast) start() {
 
 		// if ctx cancelled just close buffer imediately, this will clean up any go-routine.
 		if m.ctx.Err() != nil {
-			m.buf.close()
+			m.out.close()
 			return
 		}
 
 		m.wg.Wait()
-		m.buf.close()
-		close(m.buf.ch)
+		m.out.close()
 	}()
 
 	for {
@@ -130,6 +132,7 @@ func (m *messageBroadcast) start() {
 				}
 
 				listener <- val
+				m.wg.Add(1)
 			}
 		}
 	}
