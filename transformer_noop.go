@@ -4,8 +4,8 @@ import (
 	"context"
 )
 
-var Noop = func(_ *Config) Transformer {
-	return &noopTransformer{}
+var Noop = func(_ *Config) (Transformer, bool) {
+	return &noopTransformer{}, false
 }
 
 type noopTransformer struct{}

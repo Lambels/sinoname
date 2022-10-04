@@ -11,7 +11,7 @@ func TestCamelCase(t *testing.T) {
 	expected := "CamelCaseTest"
 	value := "-.camel -case test"
 
-	tr := sinoname.CamelCase(testConfig)
+	tr, _ := sinoname.CamelCase(testConfig)
 
 	v, err := tr.Transform(context.Background(), value)
 	if err != nil {

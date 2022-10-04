@@ -22,16 +22,18 @@ import (
 // the new message, processes it and then writes it to the buffer. When the previous message
 // is synced the layer pulls messages from each transformers buffer and syncs them.
 type UniformTransformerLayer struct {
-	Transformers []Transformer
+	cfg                  *Config
+	transformers         []Transformer
+	transformerFactories []TransformerFactory
 }
 
 func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan string) (<-chan string, error) {
-	if len(l.Transformers) == 0 {
+	if len(l.transformers) == 0 && len(l.transformerFactories) == 0 {
 		return nil, errors.New("sinoname: layer has no transformers")
 	}
 
-	outC := make(chan string, len(l.Transformers))
-	out := newSyncOut(len(l.Transformers), outC)
+	outC := make(chan string, len(l.transformers)+len(l.transformerFactories))
+	out := newSyncOut(len(l.transformers)+len(l.transformerFactories), outC)
 	// this wg is shared by the message broadcaster and message consumer,
 	// the broadcaster increments it whilst the consumer decrements it.
 	//
@@ -63,9 +65,17 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 	}
 
 	// register transformers for broadcast.
-	for i, t := range l.Transformers {
+	for i, t := range l.transformers {
 		tOut := broadcast.register(t)
 		go pumpToSyncBuf(tOut, i, wg)
+	}
+
+	// register statefull transformers for broadcast.
+	for i, f := range l.transformerFactories {
+		id := len(l.transformers) + i - 1
+		t, _ := f(l.cfg)
+		tOut := broadcast.register(t)
+		go pumpToSyncBuf(tOut, id, wg)
 	}
 
 	go broadcast.start()

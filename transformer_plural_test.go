@@ -11,7 +11,7 @@ func TestPlural(t *testing.T) {
 	expected := "PluralTests"
 	value := "PluralTest"
 
-	tr := sinoname.Plural(testConfig)
+	tr, _ := sinoname.Plural(testConfig)
 
 	v, err := tr.Transform(context.Background(), value)
 	if err != nil {

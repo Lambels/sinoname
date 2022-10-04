@@ -11,7 +11,7 @@ func TestKebabCase(t *testing.T) {
 	expected := "kebab-case-test"
 	value := "-.kebab -case test"
 
-	tr := sinoname.KebabCase(testConfig)
+	tr, _ := sinoname.KebabCase(testConfig)
 
 	v, err := tr.Transform(context.Background(), value)
 	if err != nil {

@@ -19,8 +19,8 @@ import (
 //
 // Adding 3 Symbols
 // .A.B.C , .A.BC. , .AB.C. , A.B.C.
-var SymbolTransformer = func(symbol string, max int) func(cfg *Config) Transformer {
-	return func(cfg *Config) Transformer {
+var SymbolTransformer = func(symbol string, max int) func(cfg *Config) (Transformer, bool) {
+	return func(cfg *Config) (Transformer, bool) {
 		if max < 0 {
 			max = 0
 		}
@@ -30,7 +30,7 @@ var SymbolTransformer = func(symbol string, max int) func(cfg *Config) Transform
 			maxLen:    cfg.MaxLen,
 			maxPoints: max,
 			source:    cfg.Source,
-		}
+		}, false
 	}
 }
 

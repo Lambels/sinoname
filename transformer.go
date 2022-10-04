@@ -12,4 +12,4 @@ type Transformer interface {
 }
 
 // TransformerFactory takes in a config object and returns a transformer.
-type TransformerFactory func(cfg *Config) Transformer
+type TransformerFactory func(cfg *Config) (Transformer, bool)

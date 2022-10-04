@@ -4,11 +4,11 @@ import (
 	"context"
 )
 
-var Plural = func(cfg *Config) Transformer {
+var Plural = func(cfg *Config) (Transformer, bool) {
 	return &pluralTransformer{
 		maxLen: cfg.MaxLen,
 		source: cfg.Source,
-	}
+	}, false
 }
 
 type pluralTransformer struct {

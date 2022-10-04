@@ -5,12 +5,12 @@ import (
 	"strings"
 )
 
-var KebabCase = func(cfg *Config) Transformer {
+var KebabCase = func(cfg *Config) (Transformer, bool) {
 	return &kebabCaseTransformer{
 		maxLen:  cfg.MaxLen,
 		source:  cfg.Source,
 		special: cfg.Special,
-	}
+	}, false
 }
 
 type kebabCaseTransformer struct {

@@ -38,7 +38,6 @@ var specialDefault = []string{
 
 // New creates a new generator with the provided config and Layer factories.
 func New(conf *Config) *Generator {
-	//TODO: use default config?
 	if conf == nil {
 		return nil
 	}
@@ -46,9 +45,10 @@ func New(conf *Config) *Generator {
 	if conf.Special == nil {
 		conf.Special = specialDefault
 	} else {
-		var oldNew []string
-		for _, v := range conf.Special {
-			oldNew = append(oldNew, v, " ")
+		oldNew := make([]string, len(conf.Special)*2)
+		for i, v := range conf.Special {
+			oldNew[i*2] = v
+			oldNew[i*2+1] = " "
 		}
 		conf.Special = oldNew
 	}
@@ -65,12 +65,18 @@ func New(conf *Config) *Generator {
 
 func (g *Generator) WithUniformTransformers(tFact ...TransformerFactory) *Generator {
 	uLayer := &UniformTransformerLayer{
-		Transformers: make([]Transformer, len(tFact)),
+		cfg:                  g.cfg,
+		transformers:         make([]Transformer, 0),
+		transformerFactories: make([]TransformerFactory, 0),
 	}
 
 	for i, f := range tFact {
-		t := f(g.cfg)
-		uLayer.Transformers[i] = t
+		t, add := f(g.cfg)
+		if !add {
+			uLayer.transformerFactories = append(uLayer.transformerFactories, f)
+			continue
+		}
+		uLayer.transformers[i] = t
 	}
 	g.layers = append(g.layers, uLayer)
 
@@ -79,12 +85,18 @@ func (g *Generator) WithUniformTransformers(tFact ...TransformerFactory) *Genera
 
 func (g *Generator) WithTransformers(tFact ...TransformerFactory) *Generator {
 	tLayer := &TransformerLayer{
-		Transformers: make([]Transformer, len(tFact)),
+		cfg:                  g.cfg,
+		transformers:         make([]Transformer, 0),
+		transformerFactories: make([]TransformerFactory, 0),
 	}
 
 	for i, f := range tFact {
-		t := f(g.cfg)
-		tLayer.Transformers[i] = t
+		t, add := f(g.cfg)
+		if !add {
+			tLayer.transformerFactories = append(tLayer.transformerFactories, f)
+			continue
+		}
+		tLayer.transformers[i] = t
 	}
 	g.layers = append(g.layers, tLayer)
 
@@ -99,14 +111,22 @@ func (g *Generator) WithTransformers(tFact ...TransformerFactory) *Generator {
 // and not sent further.
 func (g *Generator) WithProxys(pFact ...ProxyFactory) *Generator {
 	pLayer := &ProxyLayer{
-		Proxys: make([]ProxyFunc, len(pFact)),
+		cfg:            g.cfg,
+		proxys:         make([]ProxyFunc, 0),
+		proxyFactories: make([]ProxyFactory, 0),
 	}
 
-	for i, f := range pFact {
-		t := f(g.cfg)
-		pLayer.Proxys[i] = t
+	for _, f := range pFact {
+		p, add := f(g.cfg)
+		if !add {
+			pLayer.proxyFactories = append(pLayer.proxyFactories, f)
+			continue
+		}
+
+		pLayer.proxys = append(pLayer.proxys, p)
 	}
 	g.layers = append(g.layers, pLayer)
+
 	return g
 }
 

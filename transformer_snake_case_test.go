@@ -11,7 +11,7 @@ func TestSnakeCase(t *testing.T) {
 	expected := "snake_case_test"
 	value := "-.snake -case test"
 
-	tr := sinoname.SnakeCase(testConfig)
+	tr, _ := sinoname.SnakeCase(testConfig)
 
 	v, err := tr.Transform(context.Background(), value)
 	if err != nil {

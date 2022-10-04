@@ -5,11 +5,11 @@ import (
 	"strings"
 )
 
-var SnakeCase = func(cfg *Config) Transformer {
+var SnakeCase = func(cfg *Config) (Transformer, bool) {
 	return &snakeCaseTransformer{
 		maxLen: cfg.MaxLen,
 		source: cfg.Source,
-	}
+	}, false
 }
 
 type snakeCaseTransformer struct {

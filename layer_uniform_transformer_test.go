@@ -12,7 +12,8 @@ func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
 	t.Parallel()
 	t.Run("Without Values", func(t *testing.T) {
 		t.Parallel()
-		layer := newUniformLayer(Noop(nil))
+		tr, _ := Noop(nil)
+		layer := newUniformLayer(tr)
 
 		producer := make(chan string)
 		sink, err := layer.PumpOut(context.Background(), &errgroup.Group{}, producer)
@@ -164,9 +165,9 @@ func TestUniformBatch(t *testing.T) {
 
 func newUniformLayer(t ...Transformer) *UniformTransformerLayer {
 	layer := UniformTransformerLayer{
-		Transformers: make([]Transformer, 0),
+		transformers: make([]Transformer, 0),
 	}
 
-	layer.Transformers = append(layer.Transformers, t...)
+	layer.transformers = append(layer.transformers, t...)
 	return &layer
 }

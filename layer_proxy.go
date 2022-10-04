@@ -24,19 +24,27 @@ var ErrQuit error = errors.New("sinoname: abort process")
 type ProxyFunc func(string) error
 
 // ProxyFactory takes in a config object and returns a proxy function.
-type ProxyFactory func(cfg *Config) ProxyFunc
+type ProxyFactory func(cfg *Config) (ProxyFunc, bool)
 
 // ProxyLayer holds all the proxy funcs it has, for a message to pass a proxy layer it must run
 // through all the proxys without any error.
 type ProxyLayer struct {
-	Proxys []ProxyFunc
+	cfg            *Config
+	proxys         []ProxyFunc
+	proxyFactories []ProxyFactory
 }
 
 // PumpOut recieves messages from the upstream layer via the in channel and passes them through the transformers.
 // The end products of the transformers are fed in the returned channel.
 func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan string) (<-chan string, error) {
-	if len(l.Proxys) == 0 {
+	if len(l.proxys) == 0 && len(l.proxyFactories) == 0 {
 		return nil, errors.New("sinoname: layer has no proxys")
+	}
+
+	statefullProxys := make([]ProxyFunc, len(l.proxyFactories))
+	for i, f := range l.proxyFactories {
+		p, _ := f(l.cfg)
+		statefullProxys[i] = p
 	}
 
 	outC := make(chan string)
@@ -45,7 +53,21 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 		f := func() error {
 			defer wg.Done()
 
-			for _, p := range l.Proxys {
+			// normal proxy run.
+			for _, p := range l.proxys {
+				if err := p(in); err != nil {
+					// if err is ErrQuit abort process.
+					if err == ErrQuit {
+						return err
+					}
+
+					// just return.
+					return nil
+				}
+			}
+
+			// statefull proxy run.
+			for _, p := range statefullProxys {
 				if err := p(in); err != nil {
 					// if err is ErrQuit abort process.
 					if err == ErrQuit {

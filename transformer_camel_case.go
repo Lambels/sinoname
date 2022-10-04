@@ -6,12 +6,12 @@ import (
 	"unicode"
 )
 
-var CamelCase = func(cfg *Config) Transformer {
+var CamelCase = func(cfg *Config) (Transformer, bool) {
 	return &camelCaseTransformer{
 		maxLen:  cfg.MaxLen,
 		source:  cfg.Source,
 		special: cfg.Special,
-	}
+	}, false
 }
 
 type camelCaseTransformer struct {

@@ -33,7 +33,7 @@ func TestSymbol(t *testing.T) {
 			Source:  src,
 		}
 
-		tr := sinoname.SymbolTransformer(".", 3)(cfg)
+		tr, _ := sinoname.SymbolTransformer(".", 3)(cfg)
 		for _, vWant := range vals {
 			vGot, err := tr.Transform(context.Background(), "ABC")
 			if err != nil {
@@ -69,7 +69,7 @@ func TestSymbol(t *testing.T) {
 
 		// last itteration should roll to initiall value because no more points can be generated
 		// even if possible.
-		tr := sinoname.SymbolTransformer(".", 1)(cfg)
+		tr, _ := sinoname.SymbolTransformer(".", 1)(cfg)
 		v, err := tr.Transform(context.Background(), "ABC")
 		if err != nil {
 			t.Fatal(err)

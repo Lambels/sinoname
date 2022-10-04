@@ -14,15 +14,23 @@ import (
 // teoretically 1 message to a layer with 4 transformers results in 4 messages (1 * 4).
 // the output formula of each layer is sum(messages from up stream layer) * len(transformers)
 type TransformerLayer struct {
+	cfg *Config
 	// transformers is the transformers which get run for each message from the upstream channel.
-	Transformers []Transformer
+	transformers         []Transformer
+	transformerFactories []TransformerFactory
 }
 
 // PumpOut recieves messages from the upstream layer via the in channel and passes them through the transformers.
 // The end products of the transformers are fed in the returned channel.
 func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan string) (<-chan string, error) {
-	if len(l.Transformers) == 0 {
+	if len(l.transformers) == 0 && len(l.transformerFactories) == 0 {
 		return nil, errors.New("sinoname: layer has no transformers")
+	}
+
+	statefullTransformers := make([]Transformer, len(l.transformerFactories))
+	for i, f := range l.transformerFactories {
+		t, _ := f(l.cfg)
+		statefullTransformers[i] = t
 	}
 
 	outC := make(chan string)
@@ -72,8 +80,14 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 					return
 				}
 
-				wg.Add(len(l.Transformers))
-				for _, t := range l.Transformers {
+				wg.Add(len(l.transformers) + len(statefullTransformers))
+				for _, t := range l.transformers {
+					g.Go(
+						pumpOut(ctx, t, v),
+					)
+				}
+
+				for _, t := range statefullTransformers {
 					g.Go(
 						pumpOut(ctx, t, v),
 					)
