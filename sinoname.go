@@ -3,16 +3,12 @@ package sinoname
 import (
 	"context"
 	"errors"
-
-	"github.com/Lambels/sinoname/config"
-	"github.com/Lambels/sinoname/layer"
-	"github.com/Lambels/sinoname/transformer"
 )
 
 // Generator provides extra functionality on top of the layers.
 type Generator struct {
 	// kept a copy for factory functions.
-	cfg *config.Config
+	cfg *Config
 
 	// preventDefault is used to process the data from the layers and omit the default value.
 	preventDefault bool
@@ -26,11 +22,11 @@ type Generator struct {
 	maxVals int
 
 	// layers represents the pipeline through which the initial message passes.
-	layers layer.Layers
+	layers Layers
 }
 
 // New creates a new generator with the provided config and Layer factories.
-func New(conf *config.Config) *Generator {
+func New(conf *Config) *Generator {
 	g := &Generator{
 		cfg:            conf,
 		maxLen:         conf.MaxLen,
@@ -41,9 +37,9 @@ func New(conf *config.Config) *Generator {
 	return g
 }
 
-func (g *Generator) WithUniformTransformers(tFact ...transformer.TransformerFactory) *Generator {
-	uLayer := &layer.UniformTransformerLayer{
-		Transformers: make([]transformer.Transformer, len(tFact)),
+func (g *Generator) WithUniformTransformers(tFact ...TransformerFactory) *Generator {
+	uLayer := &UniformTransformerLayer{
+		Transformers: make([]Transformer, len(tFact)),
 	}
 
 	for i, f := range tFact {
@@ -55,9 +51,9 @@ func (g *Generator) WithUniformTransformers(tFact ...transformer.TransformerFact
 	return g
 }
 
-func (g *Generator) WithTransformers(tFact ...transformer.TransformerFactory) *Generator {
-	tLayer := &layer.TransformerLayer{
-		Transformers: make([]transformer.Transformer, len(tFact)),
+func (g *Generator) WithTransformers(tFact ...TransformerFactory) *Generator {
+	tLayer := &TransformerLayer{
+		Transformers: make([]Transformer, len(tFact)),
 	}
 
 	for i, f := range tFact {
@@ -75,9 +71,9 @@ func (g *Generator) WithTransformers(tFact ...transformer.TransformerFactory) *G
 // For a message to pass through the proxy layer it must pass through all the proxy functions
 // without returning any error, else the message is just consumed from the upstream layer
 // and not sent further.
-func (g *Generator) WithProxys(pFact ...layer.ProxyFactory) *Generator {
-	pLayer := &layer.ProxyLayer{
-		Proxys: make([]layer.ProxyFunc, len(pFact)),
+func (g *Generator) WithProxys(pFact ...ProxyFactory) *Generator {
+	pLayer := &ProxyLayer{
+		Proxys: make([]ProxyFunc, len(pFact)),
 	}
 
 	for i, f := range pFact {
@@ -88,7 +84,7 @@ func (g *Generator) WithProxys(pFact ...layer.ProxyFactory) *Generator {
 	return g
 }
 
-func (g *Generator) WithLayers(lFact ...layer.LayerFactory) *Generator {
+func (g *Generator) WithLayers(lFact ...LayerFactory) *Generator {
 	for _, f := range lFact {
 		l := f(g.cfg)
 		g.layers = append(g.layers, l)
