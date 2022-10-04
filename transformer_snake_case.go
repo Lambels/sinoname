@@ -13,8 +13,9 @@ var SnakeCase = func(cfg *Config) Transformer {
 }
 
 type snakeCaseTransformer struct {
-	maxLen int
-	source Source
+	maxLen  int
+	source  Source
+	special []string
 }
 
 func (t *snakeCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
@@ -22,7 +23,7 @@ func (t *snakeCaseTransformer) Transform(ctx context.Context, in string) (string
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in)
+	split := SplitOnSpecial(in, t.special)
 	out := strings.Join(split, "_")
 	if ok, err := t.source.Valid(ctx, out); !ok || err != nil {
 		return in, err

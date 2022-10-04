@@ -7,14 +7,16 @@ import (
 
 var KebabCase = func(cfg *Config) Transformer {
 	return &kebabCaseTransformer{
-		maxLen: cfg.MaxLen,
-		source: cfg.Source,
+		maxLen:  cfg.MaxLen,
+		source:  cfg.Source,
+		special: cfg.Special,
 	}
 }
 
 type kebabCaseTransformer struct {
-	maxLen int
-	source Source
+	maxLen  int
+	source  Source
+	special []string
 }
 
 func (t *kebabCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
@@ -22,7 +24,7 @@ func (t *kebabCaseTransformer) Transform(ctx context.Context, in string) (string
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in)
+	split := SplitOnSpecial(in, t.special)
 	out := strings.Join(split, "-")
 	if ok, err := t.source.Valid(ctx, out); !ok || err != nil {
 		return in, err

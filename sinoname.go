@@ -25,8 +25,34 @@ type Generator struct {
 	layers Layers
 }
 
+var specialDefault = []string{
+	".",
+	" ",
+	"-",
+	" ",
+	"_",
+	" ",
+	",",
+	" ",
+}
+
 // New creates a new generator with the provided config and Layer factories.
 func New(conf *Config) *Generator {
+	//TODO: use default config?
+	if conf == nil {
+		return nil
+	}
+
+	if conf.Special == nil {
+		conf.Special = specialDefault
+	} else {
+		var oldNew []string
+		for _, v := range conf.Special {
+			oldNew = append(oldNew, v, " ")
+		}
+		conf.Special = oldNew
+	}
+
 	g := &Generator{
 		cfg:            conf,
 		maxLen:         conf.MaxLen,

@@ -14,4 +14,6 @@ type Config struct {
 
 	// Source is used to validate if the products of the shuffle are unique / valid.
 	Source Source
+
+	Special []string
 }

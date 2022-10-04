@@ -8,14 +8,16 @@ import (
 
 var CamelCase = func(cfg *Config) Transformer {
 	return &camelCaseTransformer{
-		maxLen: cfg.MaxLen,
-		source: cfg.Source,
+		maxLen:  cfg.MaxLen,
+		source:  cfg.Source,
+		special: cfg.Special,
 	}
 }
 
 type camelCaseTransformer struct {
-	maxLen int
-	source Source
+	maxLen  int
+	source  Source
+	special []string
 }
 
 func (t *camelCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
@@ -23,7 +25,7 @@ func (t *camelCaseTransformer) Transform(ctx context.Context, in string) (string
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in)
+	split := SplitOnSpecial(in, t.special)
 	for i, word := range split {
 		split[i] = ucCapitalFirst(word)
 	}
