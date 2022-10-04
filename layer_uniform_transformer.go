@@ -108,6 +108,8 @@ func newMessageBroadcast(ctx context.Context, source <-chan string, g *errgroup.
 }
 
 func (m *messageBroadcast) start() {
+	// before the factory go-routine exits, either by a context cancelation or by the
+	// upstream's out channel closure, cleanup.
 	defer func() {
 		// close all listeners -> close all transformer handlers.
 		// the handlers will wait in their go routines for the buffer to accept values.

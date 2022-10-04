@@ -8,14 +8,12 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// transformerLayer holds all the transformers belonging to it, when the layer runs it fans out all the
-// messages it gets to all the transformers it owns.
+// transformerLayer holds all the transformers belonging to it (statefull or not), when the layer runs it fans out all the
+// messages it gets to all the transformers it owns (first to the unstatefull then to the statefull).
 //
 // teoretically 1 message to a layer with 4 transformers results in 4 messages (1 * 4).
-// the output formula of each layer is sum(messages from up stream layer) * len(transformers)
 type TransformerLayer struct {
-	cfg *Config
-	// transformers is the transformers which get run for each message from the upstream channel.
+	cfg                  *Config
 	transformers         []Transformer
 	transformerFactories []TransformerFactory
 }
@@ -58,7 +56,7 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 
 	go func() {
 		// before the factory go-routine exits, either by a context cancelation or by the
-		// upstream's out channel closure, close the layers out channel.
+		// upstream's out channel closure, cleanup.
 		defer func() {
 			if ctx.Err() != nil {
 				return

@@ -3,7 +3,7 @@ package sinoname
 import "context"
 
 // Source is an interface which should be implemented by the client, it serves the purpose
-// of validating a username and should be concurrency safe.
+// of validating a username and must be concurrency safe.
 //
 // You can implement source on your database instance to validate usernames.
 type Source interface {

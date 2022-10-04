@@ -23,10 +23,16 @@ var ErrQuit error = errors.New("sinoname: abort process")
 // If the error is nil: the message is passed to further proxy functions.
 type ProxyFunc func(string) error
 
-// ProxyFactory takes in a config object and returns a proxy function.
+// ProxyFactory takes in a config object and returns a proxy function and a state indicator.
+//
+// If the state indicator has true boolean value then the proxy layer using it is
+// going to create a new ProxyFunc per each (sinoname.Layer).PumpOut() call.
+//
+// The state values is usefull for proxy functions since you might want to keep state across
+// a pipeline with proxy functions.
 type ProxyFactory func(cfg *Config) (ProxyFunc, bool)
 
-// ProxyLayer holds all the proxy funcs it has, for a message to pass a proxy layer it must run
+// ProxyLayer holds all the proxy funcs it has (statefull or not), for a message to pass a proxy layer it must run
 // through all the proxys without any error.
 type ProxyLayer struct {
 	cfg            *Config
@@ -48,6 +54,7 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 	}
 
 	outC := make(chan string)
+	// wg is used to monitor the local go routines of this layer.
 	var wg sync.WaitGroup
 	pumpOut := func(in string) func() error {
 		f := func() error {
@@ -91,11 +98,14 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 	}
 
 	go func() {
+		// before the factory go-routine exits, either by a context cancelation or by the
+		// upstream's out channel closure, cleanup.
 		defer func() {
 			if ctx.Err() != nil {
 				return
 			}
 
+			// wait for all the transformers to send their value before closing.
 			wg.Wait()
 			close(outC)
 		}()
