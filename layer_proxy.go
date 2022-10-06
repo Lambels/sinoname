@@ -14,14 +14,16 @@ import (
 // No message will be recieved if this error is returned.
 var ErrQuit error = errors.New("sinoname: abort process")
 
-// ProxyFunc takes in a message and returns an error based on the input.
+// Proxy takes in a message and returns an error based on the input.
 //
 // If the error is not nil: the input is skipped.
 //
 // If the error is ErrQuit: the whole generation process gets closed.
 //
 // If the error is nil: the message is passed to further proxy functions.
-type ProxyFunc func(string) error
+type Proxy interface {
+	Proxy(context.Context, string) error
+}
 
 // ProxyFactory takes in a config object and returns a proxy function and a state indicator.
 //
@@ -30,13 +32,13 @@ type ProxyFunc func(string) error
 //
 // The state values is usefull for proxy functions since you might want to keep state across
 // a pipeline with proxy functions.
-type ProxyFactory func(cfg *Config) (ProxyFunc, bool)
+type ProxyFactory func(cfg *Config) (Proxy, bool)
 
 // ProxyLayer holds all the proxy funcs it has (statefull or not), for a message to pass a proxy layer it must run
 // through all the proxys without any error.
 type ProxyLayer struct {
 	cfg            *Config
-	proxys         []ProxyFunc
+	proxys         []Proxy
 	proxyFactories []ProxyFactory
 }
 
@@ -47,7 +49,7 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 		return nil, errors.New("sinoname: layer has no proxys")
 	}
 
-	statefullProxys := make([]ProxyFunc, len(l.proxyFactories))
+	statefullProxys := make([]Proxy, len(l.proxyFactories))
 	for i, f := range l.proxyFactories {
 		p, _ := f(l.cfg)
 		statefullProxys[i] = p
@@ -62,7 +64,7 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 
 			// normal proxy run.
 			for _, p := range l.proxys {
-				if err := p(in); err != nil {
+				if err := p.Proxy(ctx, in); err != nil {
 					// if err is ErrQuit abort process.
 					if err == ErrQuit {
 						return err
@@ -75,7 +77,7 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 
 			// statefull proxy run.
 			for _, p := range statefullProxys {
-				if err := p(in); err != nil {
+				if err := p.Proxy(ctx, in); err != nil {
 					// if err is ErrQuit abort process.
 					if err == ErrQuit {
 						return err
@@ -113,12 +115,14 @@ func (l *ProxyLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan s
 		for {
 			select {
 			case <-ctx.Done():
+				return
 
 			case v, ok := <-in:
 				if !ok {
 					return
 				}
 
+				wg.Add(1)
 				g.Go(pumpOut(v))
 			}
 		}
