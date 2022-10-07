@@ -22,9 +22,13 @@ func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
 		}
 
 		close(producer)
-		_, ok := <-sink
-		if ok {
-			t.Fatal("expected ok to be false")
+		select {
+		case _, ok := <-sink:
+			if ok {
+				t.Fatal("expected ok to be false")
+			}
+		case <-time.After(20 * time.Microsecond):
+			t.Fatal("expected channel to be closed")
 		}
 	})
 
@@ -67,7 +71,7 @@ func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
 	})
 }
 
-func TestUniformLayerCloseCtx(t *testing.T) {
+func TestUniformLayerCancelCtx(t *testing.T) {
 	t.Run("Manual", func(t *testing.T) {
 		t.Parallel()
 		layer := newUniformLayer(
