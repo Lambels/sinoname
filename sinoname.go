@@ -112,7 +112,7 @@ func (g *Generator) WithTransformers(tFact ...TransformerFactory) *Generator {
 func (g *Generator) WithProxys(pFact ...ProxyFactory) *Generator {
 	pLayer := &ProxyLayer{
 		cfg:            g.cfg,
-		proxys:         make([]ProxyFunc, 0),
+		proxys:         make([]Proxy, 0),
 		proxyFactories: make([]ProxyFactory, 0),
 	}
 
