@@ -26,35 +26,37 @@ var SymbolTransformer = func(symbol string, max int) func(cfg *Config) (Transfor
 		}
 
 		return &symbolTransformer{
-			symbol:    symbol,
-			maxLen:    cfg.MaxLen,
-			maxPoints: max,
-			source:    cfg.Source,
+			symbol:     symbol,
+			maxLen:     cfg.MaxLen,
+			maxSymbols: max,
+			source:     cfg.Source,
 		}, false
 	}
 }
 
 type symbolTransformer struct {
-	symbol    string
-	maxLen    int
-	maxPoints int
-	source    Source
+	symbol     string
+	maxLen     int
+	maxSymbols int
+	source     Source
 }
 
 func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, error) {
 	var g *combin.CombinationGenerator
 	n := len(in)
 
-	for pointsToAdd := 1; pointsToAdd < n+1; pointsToAdd++ {
-		if pointsToAdd+n > t.maxLen {
+	for symbolsToAdd := 1; symbolsToAdd < n+1; symbolsToAdd++ {
+		// dont bother to generate if we cant acomodate size after
+		// the symbols are added.
+		if symbolsToAdd+n > t.maxLen {
 			return in, nil
 		}
-		if pointsToAdd > t.maxPoints && t.maxPoints != 0 {
+		if symbolsToAdd > t.maxSymbols && t.maxSymbols != 0 {
 			return in, nil
 		}
 
-		comb := make([]int, pointsToAdd)
-		g = combin.NewCombinationGenerator(n+1, pointsToAdd)
+		comb := make([]int, symbolsToAdd)
+		g = combin.NewCombinationGenerator(n+1, symbolsToAdd)
 
 		for g.Next() {
 			select {
