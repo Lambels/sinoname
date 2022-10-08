@@ -59,7 +59,7 @@ func TestSyncBufClose(t *testing.T) {
 			t.Fatal("expected channel to get closed imediatley after writer exit")
 		}
 
-	case <-time.After(1 * time.Second):
+	case <-time.After(2 * time.Second):
 		t.Fatal("write notify shouldv triggered withing 3 seconds")
 	}
 }
