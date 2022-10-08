@@ -58,10 +58,6 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 		// before the factory go-routine exits, either by a context cancelation or by the
 		// upstream's out channel closure, cleanup.
 		defer func() {
-			if ctx.Err() != nil {
-				return
-			}
-
 			// wait for all the transformers to send their value before closing.
 			wg.Wait()
 			close(outC)
