@@ -25,9 +25,9 @@ func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
 		select {
 		case _, ok := <-sink:
 			if ok {
-				t.Fatal("expected ok to be false")
+				t.Fatal("recieved unexpected non close message")
 			}
-		case <-time.After(20 * time.Microsecond):
+		case <-time.After(1 * time.Second):
 			t.Fatal("expected channel to be closed")
 		}
 	})
@@ -55,7 +55,7 @@ func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
 					if ok {
 						t.Fatal("expected channel to be closed after messages read")
 					}
-				case <-time.After(20 * time.Microsecond):
+				case <-time.After(1 * time.Second):
 					t.Fatal("channel should be closed imediately")
 				}
 				return
@@ -98,7 +98,7 @@ func TestUniformLayerCancelCtx(t *testing.T) {
 			if ok {
 				t.Fatal("recieved unexpected non close message")
 			}
-		case <-time.After(2 * time.Second):
+		case <-time.After(1 * time.Second):
 			t.Fatal("expected sink to be closed")
 		}
 	})
@@ -113,8 +113,8 @@ func TestUniformLayerCancelCtx(t *testing.T) {
 		producer := make(chan string, 1)
 		producer <- ""
 
-		g, errCtx := errgroup.WithContext(context.Background())
-		sink, err := layer.PumpOut(errCtx, g, producer)
+		g, ctx := errgroup.WithContext(context.Background())
+		sink, err := layer.PumpOut(ctx, g, producer)
 		if err != nil {
 			t.Fatal(err)
 		}
