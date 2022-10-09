@@ -44,7 +44,7 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 
 	// go routine which reads from pumpIn channel buffer and writes to the sync buffer,
 	// once the value is written the wg is decremented.
-	pumpToSyncBuf := func(pumpIn <-chan string, id int, wg *sync.WaitGroup) {
+	pumpToSyncBuf := func(pumpIn <-chan string, skip <-chan struct{}, id int, wg *sync.WaitGroup) {
 		for {
 			select {
 			case <-ctx.Done():
@@ -60,22 +60,29 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 				if !next {
 					return
 				}
+
+			case <-skip:
+				next := out.advance(id)
+				wg.Done()
+				if !next {
+					return
+				}
 			}
 		}
 	}
 
 	// register transformers for broadcast.
 	for i, t := range l.transformers {
-		tOut := broadcast.register(t)
-		go pumpToSyncBuf(tOut, i, wg)
+		tOut, tSkip := broadcast.register(t)
+		go pumpToSyncBuf(tOut, tSkip, i, wg)
 	}
 
 	// register statefull transformers for broadcast.
 	for i, f := range l.transformerFactories {
 		id := len(l.transformers) + i - 1
 		t, _ := f(l.cfg)
-		tOut := broadcast.register(t)
-		go pumpToSyncBuf(tOut, id, wg)
+		tOut, tSkip := broadcast.register(t)
+		go pumpToSyncBuf(tOut, tSkip, id, wg)
 	}
 
 	go broadcast.start()
@@ -150,38 +157,47 @@ func (m *messageBroadcast) start() {
 }
 
 // register must be called before starting the service.
-func (m *messageBroadcast) register(t Transformer) <-chan string {
+func (m *messageBroadcast) register(t Transformer) (<-chan string, <-chan struct{}) {
 	outC := make(chan string, 10) // buffer to prevent blocking.
+	skip := make(chan struct{}, 10)
 	inC := make(chan string)
 	m.listeners = append(m.listeners, inC)
 
-	go m.handleTransformer(inC, outC, t)
+	go m.handleTransformer(inC, outC, skip, t)
 
-	return outC
+	return outC, skip
 }
 
 // handleTransformer pumps messages to the transformers out channel concurrently.
-func (m *messageBroadcast) handleTransformer(in <-chan string, out chan<- string, t Transformer) {
+func (m *messageBroadcast) handleTransformer(in <-chan string, out chan<- string, skip chan<- struct{}, t Transformer) {
 	defer func() {
 		m.wg.Wait()
 		close(out)
 	}()
 
 	for val := range in {
-		m.g.Go(m.pumpToOut(val, t, out))
+		m.g.Go(m.pumpToOut(val, t, out, skip))
 	}
 }
 
 // pumpToOut carries out the processing by the transformer and pumps the value to the buffered channel
 // to be read sequentially by the sync buffer go-routine.
-func (m *messageBroadcast) pumpToOut(val string, t Transformer, out chan<- string) func() error {
+func (m *messageBroadcast) pumpToOut(val string, t Transformer, send chan<- string, skip chan<- struct{}) func() error {
 	f := func() error {
 		// err should be ctx error if context cancelled.
 		val, err := t.Transform(m.ctx, val)
 		if err != nil {
 			if err == ErrSkip {
-				return nil
+
+				// skip value.
+				select {
+				case <-m.ctx.Done():
+					return m.ctx.Err()
+				case skip <- struct{}{}:
+					return nil
+				}
 			}
+
 			return err
 		}
 
@@ -189,7 +205,7 @@ func (m *messageBroadcast) pumpToOut(val string, t Transformer, out chan<- strin
 		select {
 		case <-m.ctx.Done():
 			return m.ctx.Err()
-		case out <- val:
+		case send <- val:
 			return nil
 		}
 	}
