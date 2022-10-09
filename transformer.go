@@ -2,7 +2,12 @@ package sinoname
 
 import (
 	"context"
+	"errors"
 )
+
+// ErrSkip should be used by transformers to skip the output and not pass it
+// further down the pipeline.
+var ErrSkip error = errors.New("skip output")
 
 // Transformer represents a stage of transformation over a message.
 //
