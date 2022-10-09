@@ -7,8 +7,9 @@ import (
 
 var SnakeCase = func(cfg *Config) (Transformer, bool) {
 	return &snakeCaseTransformer{
-		maxLen: cfg.MaxLen,
-		source: cfg.Source,
+		special: cfg.Special,
+		maxLen:  cfg.MaxLen,
+		source:  cfg.Source,
 	}, false
 }
 
