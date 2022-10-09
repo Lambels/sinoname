@@ -39,6 +39,9 @@ type Layer interface {
 	PumpOut(context.Context, *errgroup.Group, <-chan string) (<-chan string, error)
 }
 
+// LayerFactory takes in a config object and returns a new layer.
+type LayerFactory func(cfg *Config) Layer
+
 // Layers is an abstraction type for multiple layers.
 type Layers []Layer
 
@@ -54,6 +57,9 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	fanOutC <- in
 	close(fanOutC)
 
+	// unbuffered sink channel consumed by sinoname.Generator .
+	sinkC := make(chan string)
+
 	// the errgroup is used to stop all layers once one of the layers
 	// encounters an error from the source, rendering the source unreliable.
 	g, ctx := errgroup.WithContext(ctx)
@@ -62,11 +68,7 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	// pipeline freeing the go-routines.
 	ctx, cancel := context.WithCancel(ctx)
 
-	// fanInC is used to fanIn all the messages from the last layer for the generator to consume.
-	//
-	// it is closed when either the context is cancelled by an error or explicit cancelation by the client
-	// or generator.
-	var fanInC <-chan string
+	ctx = context.WithValue(ctx, sinkKey{}, sinkC)
 
 	// clnUp frees all go-routines created by the layers, not calling this function can cause
 	// a memory leak.
@@ -77,6 +79,11 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 		return g.Wait()
 	}
 
+	// fanInC is used to fanIn all the messages from the last layer for the generator to consume.
+	//
+	// it is closed when either the context is cancelled by an error or explicit cancelation by the client
+	// or generator.
+	var fanInC <-chan string
 	// start layers pipeline.
 	var err error
 	var lastOutC <-chan string
@@ -89,8 +96,30 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	}
 	fanInC = lastOutC
 
-	return fanInC, clnUp, nil
-}
+	// bridge go-routine between fanInC and sinkC.
+	// used to decouple the layers with the sinkC so that a shortcut form each layer
+	// can occur by sending a value directly to the sinkC.
+	//
+	// the sinkC is available via the SinkFromContext() .
+	go func() {
+		defer close(sinkC)
 
-// LayerFactory takes in a config object and returns a new layer.
-type LayerFactory func(cfg *Config) Layer
+		select {
+		case v, ok := <-fanInC:
+			if !ok {
+				return
+			}
+
+			select {
+			case sinkC <- v:
+			case <-ctx.Done():
+				return
+			}
+
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	return sinkC, clnUp, nil
+}
