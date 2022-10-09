@@ -40,6 +40,9 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 
 			val, err := t.Transform(ctx, v)
 			if err != nil {
+				if err == ErrSkip {
+					return nil
+				}
 				return err
 			}
 

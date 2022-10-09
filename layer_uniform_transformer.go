@@ -179,6 +179,9 @@ func (m *messageBroadcast) pumpToOut(val string, t Transformer, out chan<- strin
 		// err should be ctx error if context cancelled.
 		val, err := t.Transform(m.ctx, val)
 		if err != nil {
+			if err == ErrSkip {
+				return nil
+			}
 			return err
 		}
 
