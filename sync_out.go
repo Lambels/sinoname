@@ -12,6 +12,7 @@ type syncOut struct {
 
 type state struct {
 	waiters map[int]chan struct{}
+	n       int
 	buf     []string
 }
 
@@ -34,6 +35,7 @@ func (s *state) flushAndNotify(to chan<- string, closeC chan struct{}) {
 		}
 	}
 	s.buf = nil
+	s.n = 0
 
 	for id, waiter := range s.waiters {
 		close(waiter)
@@ -66,12 +68,53 @@ func (b *syncOut) close() {
 	close(b.outC)
 }
 
+// wait starts waiting on id.
+func (b *syncOut) wait(s *state, id int) bool {
+	wait := make(chan struct{})
+	s.waiters[id] = wait
+	b.stateC <- s
+
+	select {
+	case <-wait:
+		return true
+	case <-b.closeC:
+		return false
+	}
+}
+
+// advance advances the writer without writing any actuall value.
+func (b *syncOut) advance(id int) bool {
+	select {
+	case state := <-b.stateC:
+		// if there is already a waiter for this id, void this entry.
+		_, ok := state.waiters[id]
+		if ok {
+			b.stateC <- state
+			return false
+		}
+
+		state.n++
+		// last writer, no need to block.
+		if state.n == b.nWriters {
+			state.flushAndNotify(b.outC, b.closeC)
+			b.stateC <- state
+			return true
+		}
+
+		// start waiting.
+		return b.wait(state, id)
+
+	case <-b.closeC:
+		return false
+	}
+}
+
 // write writes one value to the buf and then waits for the other write calls to write their
 // value then unblocks.
 func (b *syncOut) write(id int, val string) bool {
 	select {
 	case state := <-b.stateC:
-		// if there is already a waiter for this id, wait.
+		// if there is already a waiter for this id, void this entry.
 		_, ok := state.waiters[id]
 		if ok {
 			b.stateC <- state
@@ -80,23 +123,16 @@ func (b *syncOut) write(id int, val string) bool {
 
 		// write to state buffer.
 		state.buf = append(state.buf, val)
+		state.n++
 		// last writer, no need to block.
-		if len(state.buf) == b.nWriters {
+		if state.n == b.nWriters {
 			state.flushAndNotify(b.outC, b.closeC)
 			b.stateC <- state
 			return true
 		}
 
-		wait := make(chan struct{})
-		state.waiters[id] = wait
-		b.stateC <- state
-
-		select {
-		case <-wait:
-			return true
-		case <-b.closeC:
-			return false
-		}
+		// start waiting.
+		return b.wait(state, id)
 
 	case <-b.closeC:
 		return false
