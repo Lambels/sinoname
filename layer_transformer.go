@@ -4,16 +4,19 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/sync/errgroup"
 )
 
-// transformerLayer holds all the transformers belonging to it (statefull or not), when the layer runs it fans out all the
-// messages it gets to all the transformers it owns (first to the unstatefull then to the statefull).
+// transformerLayer holds all the transformers belonging to it (statefull or not),
+// when the layer runs it fans out all the messages it gets to all
+// the transformers it owns (first to the unstatefull then to the statefull).
 //
 // teoretically 1 message to a layer with 4 transformers results in 4 messages (1 * 4).
 type TransformerLayer struct {
 	cfg                  *Config
+	init                 int32
 	transformers         []Transformer
 	transformerFactories []TransformerFactory
 }
@@ -25,11 +28,8 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 		return nil, errors.New("sinoname: layer has no transformers")
 	}
 
-	statefullTransformers := make([]Transformer, len(l.transformerFactories))
-	for i, f := range l.transformerFactories {
-		t, _ := f(l.cfg)
-		statefullTransformers[i] = t
-	}
+	// local copy of statefull trasnformers.
+	statefullTransformers := l.getStatefullTransformers()
 
 	outC := make(chan string)
 	// wg is used to monitor the local go routines of this layer.
@@ -94,4 +94,25 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 	}()
 
 	return outC, nil
+}
+
+func (l *TransformerLayer) getStatefullTransformers() []Transformer {
+	if len(l.transformerFactories) == 0 {
+		return nil
+	}
+
+	statefullTransformers := make([]Transformer, len(l.transformerFactories))
+	// get initiall values if the first caller.
+	if atomic.CompareAndSwapInt32(&l.init, 0, 1) {
+		diff := len(l.transformers) - len(l.transformerFactories)
+		copy(statefullTransformers, l.transformers[diff:])
+		l.transformers = l.transformers[:diff]
+		return statefullTransformers
+	}
+
+	for i, f := range l.transformerFactories {
+		t, _ := f(l.cfg)
+		statefullTransformers[i] = t
+	}
+	return statefullTransformers
 }
