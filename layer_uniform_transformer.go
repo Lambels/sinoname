@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -23,6 +24,7 @@ import (
 // is synced the layer pulls messages from each transformers buffer and syncs them.
 type UniformTransformerLayer struct {
 	cfg                  *Config
+	init                 int32
 	transformers         []Transformer
 	transformerFactories []TransformerFactory
 }
@@ -32,9 +34,13 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 		return nil, errors.New("sinoname: layer has no transformers")
 	}
 
-	outC := make(chan string, len(l.transformers)+len(l.transformerFactories))
+	// local copy of statefull trasnformers.
+	statefullTransformers := l.getStatefullTransformers()
+
+	outC := make(chan string)
 	out := newSyncOut(len(l.transformers)+len(l.transformerFactories), outC)
 	// this wg is shared by the message broadcaster and message consumer,
+	// it acts as the orchestrator between the two,
 	// the broadcaster increments it whilst the consumer decrements it.
 	//
 	// this allows the broadcaster to wait for messages to be written to the sync buffer
@@ -78,9 +84,8 @@ func (l *UniformTransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group
 	}
 
 	// register statefull transformers for broadcast.
-	for i, f := range l.transformerFactories {
+	for i, t := range statefullTransformers {
 		id := len(l.transformers) + i - 1
-		t, _ := f(l.cfg)
 		tOut, tSkip := broadcast.register(t)
 		go pumpToSyncBuf(tOut, tSkip, id, wg)
 	}
@@ -217,4 +222,25 @@ func (m *messageBroadcast) close() {
 	for _, listener := range m.listeners {
 		close(listener)
 	}
+}
+
+func (l *UniformTransformerLayer) getStatefullTransformers() []Transformer {
+	if len(l.transformerFactories) == 0 {
+		return nil
+	}
+
+	statefullTransformers := make([]Transformer, len(l.transformerFactories))
+	// get initiall values if the first caller.
+	if atomic.CompareAndSwapInt32(&l.init, 0, 1) {
+		diff := len(l.transformers) - len(l.transformerFactories)
+		copy(statefullTransformers, l.transformers[diff:])
+		l.transformers = l.transformers[:diff]
+		return statefullTransformers
+	}
+
+	for i, f := range l.transformerFactories {
+		t, _ := f(l.cfg)
+		statefullTransformers[i] = t
+	}
+	return statefullTransformers
 }
