@@ -66,15 +66,14 @@ func New(conf *Config) *Generator {
 func (g *Generator) WithUniformTransformers(tFact ...TransformerFactory) *Generator {
 	uLayer := &UniformTransformerLayer{
 		cfg:                  g.cfg,
-		transformers:         make([]Transformer, 0),
+		transformers:         make([]Transformer, len(tFact)),
 		transformerFactories: make([]TransformerFactory, 0),
 	}
 
 	for i, f := range tFact {
-		t, add := f(g.cfg)
-		if !add {
+		t, statefull := f(g.cfg)
+		if statefull {
 			uLayer.transformerFactories = append(uLayer.transformerFactories, f)
-			continue
 		}
 		uLayer.transformers[i] = t
 	}
@@ -86,46 +85,18 @@ func (g *Generator) WithUniformTransformers(tFact ...TransformerFactory) *Genera
 func (g *Generator) WithTransformers(tFact ...TransformerFactory) *Generator {
 	tLayer := &TransformerLayer{
 		cfg:                  g.cfg,
-		transformers:         make([]Transformer, 0),
+		transformers:         make([]Transformer, len(tFact)),
 		transformerFactories: make([]TransformerFactory, 0),
 	}
 
 	for i, f := range tFact {
-		t, add := f(g.cfg)
-		if !add {
+		t, statefull := f(g.cfg)
+		if statefull {
 			tLayer.transformerFactories = append(tLayer.transformerFactories, f)
-			continue
 		}
 		tLayer.transformers[i] = t
 	}
 	g.layers = append(g.layers, tLayer)
-
-	return g
-}
-
-// WithProxys creates a new proxy layer and adds it to the generator which fans in all messages
-// from the parent layer and runs the proxy functions on each message.
-//
-// For a message to pass through the proxy layer it must pass through all the proxy functions
-// without returning any error, else the message is just consumed from the upstream layer
-// and not sent further.
-func (g *Generator) WithProxys(pFact ...ProxyFactory) *Generator {
-	pLayer := &ProxyLayer{
-		cfg:            g.cfg,
-		proxys:         make([]Proxy, 0),
-		proxyFactories: make([]ProxyFactory, 0),
-	}
-
-	for _, f := range pFact {
-		p, add := f(g.cfg)
-		if !add {
-			pLayer.proxyFactories = append(pLayer.proxyFactories, f)
-			continue
-		}
-
-		pLayer.proxys = append(pLayer.proxys, p)
-	}
-	g.layers = append(g.layers, pLayer)
 
 	return g
 }
@@ -167,7 +138,6 @@ L:
 			//
 			// the next itteration can be slow.
 			read++
-			vals = append(vals, val)
 
 			if read == g.maxVals || !ok {
 				break L
@@ -175,6 +145,7 @@ L:
 			if g.preventDefault && val == in {
 				continue
 			}
+			vals = append(vals, val)
 		}
 	}
 
