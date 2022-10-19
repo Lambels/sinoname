@@ -60,6 +60,8 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	// unbuffered sink channel consumed by sinoname.Generator .
 	sinkC := make(chan string)
 
+	ctx = context.WithValue(ctx, sinkKey{}, sinkC)
+
 	// the errgroup is used to stop all layers once one of the layers
 	// encounters an error from the source, rendering the source unreliable.
 	g, ctx := errgroup.WithContext(ctx)
@@ -67,8 +69,6 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	// cancel is used to cancel the layers when the generator is done reading messages from the
 	// pipeline freeing the go-routines.
 	ctx, cancel := context.WithCancel(ctx)
-
-	ctx = context.WithValue(ctx, sinkKey{}, sinkC)
 
 	// clnUp frees all go-routines created by the layers, not calling this function can cause
 	// a memory leak.
@@ -104,20 +104,22 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	go func() {
 		defer close(sinkC)
 
-		select {
-		case v, ok := <-fanInC:
-			if !ok {
-				return
-			}
-
+		for {
 			select {
-			case sinkC <- v:
+			case v, ok := <-fanInC:
+				if !ok {
+					return
+				}
+
+				select {
+				case sinkC <- v:
+				case <-ctx.Done():
+					return
+				}
+
 			case <-ctx.Done():
 				return
 			}
-
-		case <-ctx.Done():
-			return
 		}
 	}()
 
