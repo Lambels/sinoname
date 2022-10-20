@@ -17,10 +17,10 @@ type pluralTransformer struct {
 }
 
 func (t *pluralTransformer) Transform(ctx context.Context, in string) (string, error) {
-	out := in + "s"
-	if len(out) > t.maxLen {
+	if len(in)+1 > t.maxLen {
 		return in, nil
 	}
+	out := in + "s"
 
 	if ok, err := t.source.Valid(ctx, out); !ok || err != nil {
 		return in, err
