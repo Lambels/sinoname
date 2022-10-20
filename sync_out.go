@@ -20,7 +20,11 @@ type state struct {
 //
 // must be called with ownership to state.
 func (s *state) flushAndNotify(to chan<- string, closeC chan struct{}) {
-	for _, v := range s.buf {
+	// loop inversly to get potentially more "precious" messages at the end of the
+	// buffer.
+	for i := len(s.buf) - 1; i >= 0; i-- {
+		v := s.buf[i]
+
 		// potentially return faster.
 		select {
 		case <-closeC:
@@ -34,6 +38,7 @@ func (s *state) flushAndNotify(to chan<- string, closeC chan struct{}) {
 			return
 		}
 	}
+
 	s.buf = nil
 	s.n = 0
 
