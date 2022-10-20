@@ -140,6 +140,10 @@ L:
 			read++
 
 			if read == g.maxVals || !ok {
+				// last value.
+				if ok {
+					vals = append(vals, val)
+				}
 				break L
 			}
 			if g.preventDefault && val == in {
@@ -153,7 +157,8 @@ L:
 		// this exception occurs when the maxVals value is reached and
 		// there still are live layers.
 		if err == context.Canceled {
-			return vals, err
+			//TODO: revisit this!
+			return vals, nil
 		}
 
 		return nil, err
