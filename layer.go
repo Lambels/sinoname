@@ -2,7 +2,7 @@ package sinoname
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -49,7 +49,7 @@ type Layers []Layer
 // which must be called in order to free all resources.
 func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error, error) {
 	if len(s) == 0 {
-		return nil, func() error { return nil }, fmt.Errorf("sinoname: generator has no layers")
+		return nil, func() error { return nil }, errors.New("sinoname: generator has no layers")
 	}
 
 	// fanOutC is used to fanOut messages to the first layer.
