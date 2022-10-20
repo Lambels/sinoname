@@ -22,11 +22,13 @@ Take in a string and return a modified string and an error, transformers are the
 
 The context taken in provides contextual information about the current transaction via these [methods](https://github.com/Lambels/sinoname/blob/main/context.go). Also the context provides cancellation notifications to the transformers to return early and not stall the pipeline, these notifications should always (when possible) be respected. When the context is cancelled the error returned by the transformer must be non `nil`.
 
-### Errors
+### Errors:
 Transformers can return an errors, there are 3 scenarios possible:
 1. The error is `nil`: The message gets sent further down the pipeline
 2. The error isn't `nil`: The whole pipeline gets shutdown and no messages are received by the sink.
 3. The error is `ErrSkip`: The message gets skipped without shutting down the pipeline.
+
+### Stateful Transformers:
 
 ## Layers:
 Layers are simply put, containers which hold [transformer functions](https://github.com/Lambels/sinoname#Transformers). Their job is to take in messages -> distribute them to the transformer functions -> collect the modified values from the transformers -> pass them to the next layer.
@@ -80,4 +82,8 @@ fmt.Println(vals)
 ```
 
 ### Diagram:
-![diagram_2layers](.github/2%20layers.svg)
+<details><summary>Show</summary>
+
+<img src=".github/2%20layers.svg" alt="diagram_2layers" width="500"/>
+
+</details>
