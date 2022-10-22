@@ -221,7 +221,7 @@ The base layer of sinoname is `sinoname.Generator` which holds all the layers (`
 | MaxVals   | `int` | MaxVals is used to set the max number of returned values. The consumer reads up to MaxVals values.       |
 | PreventDefault | `bool` | PreventDefault prevents the default value from being read by the consumer. |
 | Source | `sinoname.Source` | Source is used to validate if the products of the transformers are unique / valid. |
-| Special | `[]string` | Special is a slice of symbols used by the case transformers (camel case, kebab case, ...) to decide where to split the word up and add their specific separator. |
+| SplitOn | `[]string` | SplitOn is a slice of symbols used by the case transformers (camel case, kebab case, ...) to decide where to split the word up and add their specific separator. |
 
 ## Source:
 `sinoname.Source` is an interface which must be implemented by the client. It is used by [transformers](https://github.com/Lambels/sinoname#Transformers) to validate if their return value is unique.
@@ -312,3 +312,74 @@ fmt.Println(vals)
 ```
 
 ### Custom Layers:
+Layers are similarly easy to implement (check [transformer layer](https://github.com/Lambels/sinoname/blob/main/layer_transformer.go) for simple implementation).
+
+Lets build a logging layer:
+
+`LoggingLayer` implement `sinoname.Layer`
+```go
+type LoggingLayer struct {
+    logger *log.Logger
+}
+
+// we ignore the error group since our layer cant produce any errors.
+func (l *LoggingLayer) PumpOut(ctx context.Context, _ *errgroup.Group, in <-chan string) (<- chan string, error) {
+    if l.logger == nil {
+        return nil, errors.New("expected a logger but got nil")
+    }
+
+    // channel on which we send messages out.
+    outC := make(chan string)
+    go func() {
+        defer close(outC)
+
+        for {
+            select {
+                case <-ctx.Done():
+                    // ctx cancelled, exit
+                    return
+
+                case msg, ok := <-in:
+                    // in channel cancelled, exit
+                    if !ok {
+                        return
+                    }
+
+                    logger.Printf("received message: %s", msg)
+
+                    // pass the value to the next layer:
+                    select {
+                        case <-ctx.Done():
+                            return
+                        case outC <- msg:
+                    }
+            }
+        }
+    }()
+
+    return outC, nil
+}
+```
+
+`NewLoggingLayer` returns a closure which of signature `sinoname.LayerFactory`
+```go
+func NewLoggingLayer(logger *log.Logger) sinoname.LayerFactory {
+    // we don't use the config in this layer.
+    return func(_ *Config) sinoname.Layer {
+        return &LoggingLayer{logger}
+    }
+}
+```
+
+Using the custom layer:
+```go
+gen := sinoname.New(someConfig)
+
+gen.WithLayers(
+    NewLoggingLayer(log.New(os.Stdout, "sinoname:", 0))
+)
+
+gen.Generate(context.Background(), "lam.bels")
+// Output:
+// 
+```
