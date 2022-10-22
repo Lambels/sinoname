@@ -345,7 +345,7 @@ func (l *LoggingLayer) PumpOut(ctx context.Context, _ *errgroup.Group, in <-chan
                         return
                     }
 
-                    logger.Printf("received message: %s", msg)
+                    logger.Printf("received message: %s\n", msg)
 
                     // pass the value to the next layer:
                     select {
@@ -381,5 +381,5 @@ gen.WithLayers(
 
 gen.Generate(context.Background(), "lam.bels")
 // Output:
-// 
+// sinoname:lamb.bels
 ```
