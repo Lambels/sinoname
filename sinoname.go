@@ -25,7 +25,7 @@ type Generator struct {
 	layers Layers
 }
 
-var specialDefault = []string{
+var splitOnDefault = []string{
 	".",
 	" ",
 	"-",
@@ -42,15 +42,15 @@ func New(conf *Config) *Generator {
 		return nil
 	}
 
-	if conf.Special == nil {
-		conf.Special = specialDefault
+	if conf.SplitOn == nil {
+		conf.SplitOn = splitOnDefault
 	} else {
-		oldNew := make([]string, len(conf.Special)*2)
-		for i, v := range conf.Special {
+		oldNew := make([]string, len(conf.SplitOn)*2)
+		for i, v := range conf.SplitOn {
 			oldNew[i*2] = v
 			oldNew[i*2+1] = " "
 		}
-		conf.Special = oldNew
+		conf.SplitOn = oldNew
 	}
 
 	g := &Generator{
@@ -157,7 +157,6 @@ L:
 		// this exception occurs when the maxVals value is reached and
 		// there still are live layers.
 		if err == context.Canceled {
-			//TODO: revisit this!
 			return vals, nil
 		}
 
