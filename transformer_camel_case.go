@@ -10,7 +10,7 @@ var CamelCase = func(cfg *Config) (Transformer, bool) {
 	return &camelCaseTransformer{
 		maxLen:  cfg.MaxLen,
 		source:  cfg.Source,
-		special: cfg.Special,
+		special: cfg.SplitOn,
 	}, false
 }
 

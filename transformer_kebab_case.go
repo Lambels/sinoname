@@ -9,7 +9,7 @@ var KebabCase = func(cfg *Config) (Transformer, bool) {
 	return &kebabCaseTransformer{
 		maxLen:  cfg.MaxLen,
 		source:  cfg.Source,
-		special: cfg.Special,
+		special: cfg.SplitOn,
 	}, false
 }
 
