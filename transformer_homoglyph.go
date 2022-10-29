@@ -2,8 +2,8 @@ package sinoname
 
 import (
 	"context"
+	"strings"
 	"unicode/utf8"
-	"unsafe"
 )
 
 type ConfidenceMap struct {
@@ -90,69 +90,58 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 		maxConfidence += v.MaxConfidence
 	}
 
-	var buf []byte
-	var next string
-	// first iteration (confidence 0)
-	// do not allocate buffer if string remains unchanged.
-	for i, c := range in {
-		r := t.getRune(c, 0)
-		if r == c && c != utf8.RuneError {
-			continue
-		}
-
-		var width int
-		if c == utf8.RuneError {
-			c, width = utf8.DecodeRuneInString(in[i:])
-			// intended RuneError val.
-			if width != 1 && r == c {
-				continue
-			}
-		} else {
-			width = utf8.RuneLen(r)
-		}
-
-		// changed rune, allocate buffer.
-		buf = make([]byte, 0, len(in)+utf8.UTFMax)
-		buf = append(buf, in[:i]...)
-
-		if uint32(r) < utf8.RuneSelf {
-			buf = append(buf, byte(r))
-		} else {
-			utf8.EncodeRune(buf, r)
-		}
-
-		next = in[i+width:]
-		break
-	}
-
-	// capacity is 0. no buffer was initialized therefor value unchanged.
-	if cap(buf) == 0 {
-		return in, nil
-	}
-
-	// buffer initialized, add all values.
-	for i, c := range next {
-		r := t.getRune(c, 0)
-
-	}
-
-	out := bytesToString(buf)
-	ok, err := t.source.Valid(ctx, out)
-	if err != nil {
-		return "", err
-	}
-	if ok {
-		return in, nil
-	}
-
-	for confidence := 1; confidence <= maxConfidence; confidence++ {
+	for confidence := 0; confidence <= maxConfidence; confidence++ {
 		select {
 		case <-ctx.Done():
 			return "", ctx.Err()
 		default:
 		}
 
-		var i int
+		var b strings.Builder
+		var next string
+		for i, c := range in {
+			r := t.getRune(c, confidence)
+			if r == c && c != utf8.RuneError {
+				continue
+			}
+
+			var width int
+			if c == utf8.RuneError {
+				c, width = utf8.DecodeRuneInString(in[i:])
+				// intended RuneError val.
+				if width != 1 && r == c {
+					continue
+				}
+			} else {
+				width = utf8.RuneLen(c)
+			}
+
+			// changed rune, allocate buffer.
+			b.Grow(len(in) + utf8.UTFMax)
+			b.WriteString(in[:i])
+
+			if r >= 0 {
+				b.WriteRune(r)
+			}
+
+			// skip current letter.
+			next = in[i+width:]
+			break
+		}
+
+		// capacity is 0. no buffer was initialized therefor value unchanged.
+		if b.Cap() == 0 {
+			return in, nil
+		}
+
+		// write values to buffer whilst always keeping space for at least
+		for {
+			c, width := utf8.DecodeRuneInString(next)
+			// check if we can accomodate this rune.
+
+			r := t.getRune(c, confidence)
+			b.WriteRune()
+		}
 	}
 
 	return in, nil
@@ -179,8 +168,4 @@ func (t *homoglyphTransformer) getRune(c rune, confidence int) rune {
 	}
 
 	return c
-}
-
-func bytesToString(b []byte) string {
-	return *(*string)(unsafe.Pointer(&b))
 }
