@@ -11,7 +11,7 @@ var testConfig = &Config{
 	MaxLen:  100,
 	MaxVals: 100,
 	Source:  noopSource{},
-	Special: []string{
+	SplitOn: []string{
 		".",
 		" ",
 		"-",
@@ -44,7 +44,7 @@ func TestTransformer(t *testing.T) {
 		testCase{t: SnakeCase, in: "-.snake -case test", out: "snake_case_test"},
 
 		testCase{t: Plural, in: "plural test", out: "plural tests"},
-		testCase{t: SymbolTransformer(".", 1), in: "ABC", out: ".ABC"},
+		testCase{t: SymbolTransformer('.', 1), in: "ABC", out: ".ABC"},
 		testCase{ContextWithNumber(context.Background(), 100), NumbersPrefix("_"), "Patrick1234", "100_Patrick1234"},
 		testCase{t: NumbersPrefix("-"), in: "Patrick1234", out: "1234-Patrick"},
 	)
