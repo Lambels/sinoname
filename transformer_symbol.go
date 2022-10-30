@@ -2,6 +2,8 @@ package sinoname
 
 import (
 	"context"
+	"strings"
+	"unicode/utf8"
 
 	"gonum.org/v1/gonum/stat/combin"
 )
@@ -19,7 +21,7 @@ import (
 //
 // Adding 3 Symbols
 // .A.B.C , .A.BC. , .AB.C. , A.B.C.
-var SymbolTransformer = func(symbol string, max int) func(cfg *Config) (Transformer, bool) {
+var SymbolTransformer = func(symbol rune, max int) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		if max < 0 {
 			max = 0
@@ -35,7 +37,7 @@ var SymbolTransformer = func(symbol string, max int) func(cfg *Config) (Transfor
 }
 
 type symbolTransformer struct {
-	symbol     string
+	symbol     rune
 	maxLen     int
 	maxSymbols int
 	source     Source
@@ -44,11 +46,12 @@ type symbolTransformer struct {
 func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, error) {
 	var g *combin.CombinationGenerator
 	n := len(in)
+	nr := utf8.RuneLen(t.symbol)
 
 	for symbolsToAdd := 1; symbolsToAdd < n+1; symbolsToAdd++ {
-		// dont bother to generate if we cant acomodate size after
+		// dont bother to generate and allocate buffer if we cant acomodate size after
 		// the symbols are added.
-		if symbolsToAdd+n > t.maxLen {
+		if n+symbolsToAdd*nr > t.maxLen {
 			return in, nil
 		}
 		if symbolsToAdd > t.maxSymbols && t.maxSymbols != 0 {
@@ -65,9 +68,23 @@ func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, e
 			default:
 			}
 
-			g.Combination(comb)
+			var b strings.Builder
+			b.Grow(n + symbolsToAdd*nr)
 
-			out := applyCombinations(in, comb, t.symbol)
+			g.Combination(comb)
+			var prevJ int
+			for i, j := range comb {
+				b.WriteString(in[prevJ:j])
+				b.WriteRune(t.symbol)
+				prevJ = j
+
+				// last itteration, write remaining string.
+				if i == len(comb)-1 {
+					b.WriteString(in[j:])
+				}
+			}
+
+			out := b.String()
 			ok, err := t.source.Valid(ctx, out)
 			if err != nil {
 				return "", err
@@ -80,14 +97,4 @@ func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, e
 	}
 
 	return in, nil
-}
-
-func applyCombinations(in string, comb []int, symbol string) string {
-	var offset int
-	for _, v := range comb {
-		in = in[:v+offset] + symbol + in[v+offset:]
-		offset++
-	}
-
-	return in
 }
