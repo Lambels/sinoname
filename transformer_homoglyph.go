@@ -134,14 +134,40 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 			return in, nil
 		}
 
-		// write values to buffer whilst always keeping space for at least
-		for {
-			c, width := utf8.DecodeRuneInString(next)
-			// check if we can accomodate this rune.
-
+		// write values to buffer whilst always keeping space for at least the bytes remaining
+		// in next.
+		remainingBytes := t.maxLen - b.Len()
+		for i, c := range next {
 			r := t.getRune(c, confidence)
-			b.WriteRune()
+
+			var width int
+			if n := remainingBytes - len(next[i:]); n < utf8.UTFMax {
+				width = utf8.RuneLen(r)
+				if width > n {
+					b.WriteString(next[i:])
+					break
+				}
+				if r >= 0 {
+					b.WriteRune(r)
+				}
+			} else if r >= 0 {
+				width, _ = b.WriteRune(r)
+			}
+
+			remainingBytes -= width
+			out := b.String() + next[i+width:]
+			ok, err := t.source.Valid(ctx, out)
+			if err != nil {
+				return "", err
+			}
+			if ok {
+				return out, nil
+			}
 		}
+
+		out := b.String()
+		_, err := t.source.Valid(ctx, out)
+		return out, err
 	}
 
 	return in, nil
