@@ -148,10 +148,21 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 					break
 				}
 				if r >= 0 {
-					b.WriteRune(r)
+					if r < utf8.RuneSelf {
+						b.WriteByte(byte(r))
+					} else {
+						// r is not a ASCII rune.
+						b.WriteRune(r)
+					}
 				}
 			} else if r >= 0 {
-				width, _ = b.WriteRune(r)
+				if r < utf8.RuneSelf {
+					b.WriteByte(byte(r))
+					width = 1
+				} else {
+					// r is not a ASCII rune.
+					width, _ = b.WriteRune(r)
+				}
 			}
 
 			remainingBytes -= width
