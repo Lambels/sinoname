@@ -47,6 +47,9 @@ func TestTransformer(t *testing.T) {
 		testCase{t: SymbolTransformer('.', 1), in: "ABC", out: ".ABC"},
 		testCase{ContextWithNumber(context.Background(), 100), NumbersPrefix("_"), "Patrick1234", "100_Patrick1234"},
 		testCase{t: NumbersPrefix("-"), in: "Patrick1234", out: "1234-Patrick"},
+		testCase{ContextWithNumber(context.Background(), 100), NumbersSuffix("_"), "1234Patrick", "1234Patrick_100"},
+		testCase{t: NumbersSuffix("-"), in: "Patrick1234", out: "Patrick-1234"},
+		testCase{t: Homoglyph(ASCIIHomoglyphLetters), in: "bee", out: "6ee"},
 	)
 
 	// evaluate test cases.
