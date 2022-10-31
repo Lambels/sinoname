@@ -20,8 +20,4 @@ type Config struct {
 	// SplitOn is a slice of symbols used by the case transformers (camel case, kebab case, ...)
 	// to decide where to split the word up and add their specific separator.
 	SplitOn []string
-
-	SingleHomoglyphTables []ConfidenceMap
-
-	// MultiHomoglyphTables []map[rune][]rune
 }

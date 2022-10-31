@@ -66,12 +66,14 @@ var UnicodeHomoglyph map[rune][]rune = map[rune][]rune{}
 
 var UnicodeHomoglyphSymbols map[rune][]rune = map[rune][]rune{}
 
-var Homoglyph = func(cfg *Config) (Transformer, bool) {
-	return &homoglyphTransformer{
-		maxLen:     cfg.MaxLen,
-		source:     cfg.Source,
-		homoglyphs: cfg.SingleHomoglyphTables,
-	}, false
+var Homoglyph = func(homoglyphs ...ConfidenceMap) func(cfg *Config) (Transformer, bool) {
+	return func(cfg *Config) (Transformer, bool) {
+		return &homoglyphTransformer{
+			maxLen:     cfg.MaxLen,
+			source:     cfg.Source,
+			homoglyphs: homoglyphs,
+		}, false
+	}
 }
 
 type homoglyphTransformer struct {
@@ -134,6 +136,16 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 			return in, nil
 		}
 
+		// check if string is valid after first modification.
+		out := b.String() + next
+		ok, err := t.source.Valid(ctx, out)
+		if err != nil {
+			return "", err
+		}
+		if ok {
+			return out, nil
+		}
+
 		// write values to buffer whilst always keeping space for at least the bytes remaining
 		// in next.
 		remainingBytes := t.maxLen - b.Len()
@@ -176,8 +188,8 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 			}
 		}
 
-		out := b.String()
-		_, err := t.source.Valid(ctx, out)
+		out = b.String()
+		_, err = t.source.Valid(ctx, out)
 		return out, err
 	}
 
