@@ -28,19 +28,17 @@ var SymbolTransformer = func(symbol rune, max int) func(cfg *Config) (Transforme
 		}
 
 		return &symbolTransformer{
+			cfg:        cfg,
 			symbol:     symbol,
-			maxLen:     cfg.MaxLen,
 			maxSymbols: max,
-			source:     cfg.Source,
 		}, false
 	}
 }
 
 type symbolTransformer struct {
+	cfg        *Config
 	symbol     rune
-	maxLen     int
 	maxSymbols int
-	source     Source
 }
 
 func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, error) {
@@ -51,7 +49,7 @@ func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, e
 	for symbolsToAdd := 1; symbolsToAdd < n+1; symbolsToAdd++ {
 		// dont bother to generate and allocate buffer if we cant acomodate size after
 		// the symbols are added.
-		if n+symbolsToAdd*nr > t.maxLen {
+		if n+symbolsToAdd*nr > t.cfg.MaxLen {
 			return in, nil
 		}
 		if symbolsToAdd > t.maxSymbols && t.maxSymbols != 0 {
@@ -85,7 +83,7 @@ func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, e
 			}
 
 			out := b.String()
-			ok, err := t.source.Valid(ctx, out)
+			ok, err := t.cfg.Source.Valid(ctx, out)
 			if err != nil {
 				return "", err
 			}

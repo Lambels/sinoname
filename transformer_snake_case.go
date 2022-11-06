@@ -7,26 +7,22 @@ import (
 
 var SnakeCase = func(cfg *Config) (Transformer, bool) {
 	return &snakeCaseTransformer{
-		special: cfg.SplitOn,
-		maxLen:  cfg.MaxLen,
-		source:  cfg.Source,
+		cfg: cfg,
 	}, false
 }
 
 type snakeCaseTransformer struct {
-	maxLen  int
-	source  Source
-	special []string
+	cfg *Config
 }
 
 func (t *snakeCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in) > t.maxLen {
+	if len(in) > t.cfg.MaxLen {
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in, t.special)
+	split := SplitOnSpecial(in, t.cfg.SplitOn)
 	out := strings.Join(split, "_")
-	if ok, err := t.source.Valid(ctx, out); !ok || err != nil {
+	if ok, err := t.cfg.Source.Valid(ctx, out); !ok || err != nil {
 		return in, err
 	}
 

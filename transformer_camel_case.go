@@ -8,30 +8,26 @@ import (
 
 var CamelCase = func(cfg *Config) (Transformer, bool) {
 	return &camelCaseTransformer{
-		maxLen:  cfg.MaxLen,
-		source:  cfg.Source,
-		special: cfg.SplitOn,
+		cfg: cfg,
 	}, false
 }
 
 type camelCaseTransformer struct {
-	maxLen  int
-	source  Source
-	special []string
+	cfg *Config
 }
 
 func (t *camelCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in) > t.maxLen {
+	if len(in) > t.cfg.MaxLen {
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in, t.special)
+	split := SplitOnSpecial(in, t.cfg.SplitOn)
 	for i, word := range split {
 		split[i] = ucCapitalFirst(word)
 	}
 
 	out := strings.Join(split, "")
-	if ok, err := t.source.Valid(ctx, out); !ok || err != nil {
+	if ok, err := t.cfg.Source.Valid(ctx, out); !ok || err != nil {
 		return in, err
 	}
 

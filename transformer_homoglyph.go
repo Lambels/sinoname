@@ -24,6 +24,7 @@ var ASCIIHomoglyphLetters ConfidenceMap = ConfidenceMap{
 		'u': {'v', 'U'},
 		'v': {'u', 'V'},
 		'w': {'W'},
+		'z': {'s'},
 
 		'A': {'4'},
 		'B': {'8'},
@@ -69,21 +70,19 @@ var UnicodeHomoglyphSymbols map[rune][]rune = map[rune][]rune{}
 var Homoglyph = func(homoglyphs ...ConfidenceMap) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &homoglyphTransformer{
-			maxLen:     cfg.MaxLen,
-			source:     cfg.Source,
+			cfg:        cfg,
 			homoglyphs: homoglyphs,
 		}, false
 	}
 }
 
 type homoglyphTransformer struct {
-	maxLen     int
-	source     Source
+	cfg        *Config
 	homoglyphs []ConfidenceMap
 }
 
 func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in)+utf8.UTFMax > t.maxLen {
+	if len(in)+utf8.UTFMax > t.cfg.MaxLen {
 		return in, nil
 	}
 
@@ -138,7 +137,7 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 
 		// check if string is valid after first modification.
 		out := b.String() + next
-		ok, err := t.source.Valid(ctx, out)
+		ok, err := t.cfg.Source.Valid(ctx, out)
 		if err != nil {
 			return "", err
 		}
@@ -148,7 +147,7 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 
 		// write values to buffer whilst always keeping space for at least the bytes remaining
 		// in next.
-		remainingBytes := t.maxLen - b.Len()
+		remainingBytes := t.cfg.MaxLen - b.Len()
 		for i, c := range next {
 			r := t.getRune(c, confidence)
 
@@ -179,7 +178,7 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 
 			remainingBytes -= width
 			out := b.String() + next[i+width:]
-			ok, err := t.source.Valid(ctx, out)
+			ok, err := t.cfg.Source.Valid(ctx, out)
 			if err != nil {
 				return "", err
 			}
@@ -189,7 +188,7 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 		}
 
 		out = b.String()
-		_, err = t.source.Valid(ctx, out)
+		_, err = t.cfg.Source.Valid(ctx, out)
 		return out, err
 	}
 
