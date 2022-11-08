@@ -1,5 +1,10 @@
 package sinoname
 
+import (
+	"math/rand"
+	"sync"
+)
+
 // Config represents a config object accepted by sinoname.New(), sinoname.LayerFactor and sinoname.TransformerFactory .
 type Config struct {
 	// MaxLen is used to set the max length of the returned values (in bytes),
@@ -20,4 +25,29 @@ type Config struct {
 	// SplitOn is a slice of symbols used by the case transformers (camel case, kebab case, ...)
 	// to decide where to split the word up and add their specific separator.
 	SplitOn []string
+
+	// Adjectives is a slice of adjectives to be used by suffix, prefix and circumfix transformers.
+	Adjectives []string
+
+	// shuffle pool is non-nil if adjectives are provided, it keeps alive fixed sized
+	// buffers of shuffled integers used to shuffle the adjectives slice.
+	shufflePool sync.Pool
+}
+
+func (c *Config) getShuffle() []int {
+	if c.Adjectives == nil {
+		return nil
+	}
+
+	v, _ := c.shufflePool.Get().([]int)
+	return v
+}
+
+func (c *Config) putShuffle(slc []int) {
+	if c.Adjectives == nil {
+		return
+	}
+
+	rand.Shuffle(len(slc), func(i, j int) { slc[i], slc[j] = slc[j], slc[i] })
+	c.shufflePool.Put(slc)
 }

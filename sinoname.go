@@ -3,6 +3,8 @@ package sinoname
 import (
 	"context"
 	"errors"
+	"math/rand"
+	"sync"
 )
 
 // Generator provides extra functionality on top of the layers.
@@ -51,6 +53,23 @@ func New(conf *Config) *Generator {
 			oldNew[i*2+1] = " "
 		}
 		conf.SplitOn = oldNew
+	}
+
+	// if adjectives provided, create a pool to share shuffle buffers around all circumfix,
+	// suffix or prefix transformer go routines.
+	if conf.Adjectives != nil {
+		conf.shufflePool = sync.Pool{
+			New: func() any {
+				chunkSize := len(conf.Adjectives) / chunks
+				slc := make([]int, chunkSize)
+				for i := range slc {
+					slc[i] = i
+				}
+
+				rand.Shuffle(len(slc), func(i, j int) { slc[i], slc[j] = slc[j], slc[i] })
+				return slc
+			},
+		}
 	}
 
 	g := &Generator{
