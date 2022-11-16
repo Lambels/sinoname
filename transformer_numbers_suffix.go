@@ -26,25 +26,17 @@ func (t *numbersSuffixTransformer) Transform(ctx context.Context, in string) (st
 
 	if v, ok := NumberFromContext(ctx); ok {
 		num := strconv.Itoa(v)
-		if len(in)+len(t.sep)+len(num) > t.cfg.MaxLen {
-			return in, nil
-		}
-
-		out := in + t.sep + num
-		ok, err := t.cfg.Source.Valid(ctx, out)
-		if err != nil {
-			return in, err
-		}
-		if ok {
-			return out, nil
+		out, ok, err := applyAffix(ctx, t.cfg, suffix, in, t.sep, num)
+		if err != nil || ok {
+			return out, err
 		}
 	}
 
 	// len(stripped + num) == len(in)
 	stripped, num := StripNumbers(in)
-	out := stripped + t.sep + num
-	if ok, err := t.cfg.Source.Valid(ctx, out); !ok || err != nil {
-		return in, err
+	out, ok, err := applyAffix(ctx, t.cfg, suffix, stripped, t.sep, num)
+	if err != nil || ok {
+		return out, nil
 	}
-	return out, nil
+	return in, nil
 }
