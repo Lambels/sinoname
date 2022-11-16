@@ -17,7 +17,7 @@ type Config struct {
 	MaxVals int
 
 	// PreventDefault prevents the default value from being read by the consumer.
-	PreventDefault bool
+	PreventDuplicates bool
 
 	// Source is used to validate if the products of the transformers are unique / valid.
 	Source Source
@@ -27,7 +27,11 @@ type Config struct {
 	SplitOn []string
 
 	// Adjectives is a slice of adjectives to be used by suffix, prefix and circumfix transformers.
+	// Should be shuffled before referenced.
 	Adjectives []string
+
+	// RandSrc is used for random opperations throughout the pipeline.
+	RandSrc *rand.Rand
 
 	// shuffle pool is non-nil if adjectives are provided, it keeps alive fixed sized
 	// buffers of shuffled integers used to shuffle the adjectives slice.
@@ -48,6 +52,6 @@ func (c *Config) putShuffle(slc []int) {
 		return
 	}
 
-	rand.Shuffle(len(slc), func(i, j int) { slc[i], slc[j] = slc[j], slc[i] })
+	c.RandSrc.Shuffle(len(slc), func(i, j int) { slc[i], slc[j] = slc[j], slc[i] })
 	c.shufflePool.Put(slc)
 }
