@@ -1,10 +1,8 @@
-package sinoname_test
+package sinoname
 
 import (
 	"context"
 	"testing"
-
-	"github.com/Lambels/sinoname"
 )
 
 // TODO: refactor
@@ -26,14 +24,14 @@ func TestSymbol(t *testing.T) {
 			".AB.C.",
 			"A.B.C.",
 		}
-		src := newCustomSource()
-		cfg := &sinoname.Config{
+		src := newStaticSource()
+		cfg := &Config{
 			MaxLen:  testConfig.MaxLen,
 			MaxVals: testConfig.MaxVals,
 			Source:  src,
 		}
 
-		tr, _ := sinoname.SymbolTransformer('.', 3)(cfg)
+		tr, _ := SymbolTransformer('.', 3)(cfg)
 		for _, vWant := range vals {
 			vGot, err := tr.Transform(context.Background(), "ABC")
 			if err != nil {
@@ -55,13 +53,13 @@ func TestSymbol(t *testing.T) {
 	})
 
 	t.Run("Max_Symbols", func(t *testing.T) {
-		src := newCustomSource(
+		src := newStaticSource(
 			".ABC",
 			"A.BC",
 			"AB.C",
 			"ABC.",
 		)
-		cfg := &sinoname.Config{
+		cfg := &Config{
 			MaxLen:  testConfig.MaxLen,
 			MaxVals: testConfig.MaxVals,
 			Source:  src,
@@ -69,7 +67,7 @@ func TestSymbol(t *testing.T) {
 
 		// last itteration should roll to initiall value because no more points can be generated
 		// even if possible.
-		tr, _ := sinoname.SymbolTransformer('.', 1)(cfg)
+		tr, _ := SymbolTransformer('.', 1)(cfg)
 		v, err := tr.Transform(context.Background(), "ABC")
 		if err != nil {
 			t.Fatal(err)
@@ -78,34 +76,4 @@ func TestSymbol(t *testing.T) {
 			t.Fatal("last iteration wasnt set to initiall value")
 		}
 	})
-}
-
-type staticSrc struct {
-	vals []string
-}
-
-func (s *staticSrc) addValue(v string) {
-	s.vals = append(s.vals, v)
-}
-
-func (s *staticSrc) Valid(ctx context.Context, in string) (bool, error) {
-	for _, v := range s.vals {
-		select {
-		case <-ctx.Done():
-			return false, ctx.Err()
-		default:
-		}
-
-		if v == in {
-			return false, nil
-		}
-	}
-
-	return true, nil
-}
-
-func newCustomSource(vals ...string) *staticSrc {
-	return &staticSrc{
-		vals: vals,
-	}
 }
