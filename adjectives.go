@@ -1,6 +1,6 @@
 package sinoname
 
-var chunks int = 64
+var chunks int = 10
 
 var AppearanceAdjectives = []string{
 	"attractive",
