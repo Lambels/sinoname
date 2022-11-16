@@ -1,33 +1,9 @@
-package sinoname_test
+package sinoname
 
 import (
 	"context"
 	"testing"
-
-	. "github.com/Lambels/sinoname"
 )
-
-var testConfig = &Config{
-	MaxLen:  100,
-	MaxVals: 100,
-	Source:  noopSource{},
-	SplitOn: []string{
-		".",
-		" ",
-		"-",
-		" ",
-		"_",
-		" ",
-		",",
-		" ",
-	},
-}
-
-type noopSource struct{}
-
-func (n noopSource) Valid(context.Context, string) (bool, error) {
-	return true, nil
-}
 
 func TestTransformer(t *testing.T) {
 	type testCase struct {
