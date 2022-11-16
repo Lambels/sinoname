@@ -3,7 +3,6 @@ package sinoname
 import (
 	"context"
 	"errors"
-	"math/rand"
 	"sync"
 )
 
@@ -13,7 +12,7 @@ type Generator struct {
 	cfg *Config
 
 	// preventDefault is used to process the data from the layers and omit the default value.
-	preventDefault bool
+	preventDuplicates bool
 
 	// maxLen is used both by the generator and layers, it checks that the initial input isnt
 	// longer then maxLen.
@@ -61,22 +60,17 @@ func New(conf *Config) *Generator {
 		conf.shufflePool = sync.Pool{
 			New: func() any {
 				chunkSize := len(conf.Adjectives) / chunks
-				slc := make([]int, chunkSize)
-				for i := range slc {
-					slc[i] = i
-				}
-
-				rand.Shuffle(len(slc), func(i, j int) { slc[i], slc[j] = slc[j], slc[i] })
+				slc := conf.RandSrc.Perm(chunkSize)
 				return slc
 			},
 		}
 	}
 
 	g := &Generator{
-		cfg:            conf,
-		maxLen:         conf.MaxLen,
-		maxVals:        conf.MaxVals,
-		preventDefault: conf.PreventDefault,
+		cfg:               conf,
+		maxLen:            conf.MaxLen,
+		maxVals:           conf.MaxVals,
+		preventDuplicates: conf.PreventDuplicates,
 	}
 
 	return g
@@ -144,6 +138,7 @@ func (g *Generator) Generate(ctx context.Context, in string) ([]string, error) {
 
 	var read int
 	var vals []string
+	readVals := make(map[string]bool)
 L:
 	for {
 		select {
@@ -152,6 +147,11 @@ L:
 			return nil, ctx.Err()
 
 		case val, ok := <-inC:
+			if readVals[val] {
+				continue
+			}
+			readVals[val] = true
+
 			// increment read here so we dont have to wait for next itteration
 			// to check if we are at the last value.
 			//
@@ -164,9 +164,6 @@ L:
 					vals = append(vals, val)
 				}
 				break L
-			}
-			if g.preventDefault && val == in {
-				continue
 			}
 			vals = append(vals, val)
 		}
