@@ -6,6 +6,9 @@ import (
 	"unicode"
 )
 
+//TODO: add all option -> FOO BAR BUZ -> FBBUZ // FBARBUZ
+//TODO: all option for circumfix -> FOO BAR BUZ -> FBB
+
 var AbreviationPrefix = func(cfg *Config) (Transformer, bool) {
 	return &abreviationTransformer{
 		cfg:   cfg,
@@ -54,7 +57,7 @@ func (t *abreviationTransformer) Transform(ctx context.Context, in string) (stri
 		out = strings.Join(split, "")
 
 	case circumfix:
-		for i := 1; i < len(split); i++ {
+		for i := 1; i < len(split)-1; i++ {
 			split[i] = string(unicode.ToUpper(rune(split[i][0])))
 		}
 		out = strings.Join(split, "")
