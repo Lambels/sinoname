@@ -22,18 +22,22 @@ func TestTransformer(t *testing.T) {
 		testCase{t: Plural, in: "plural test", out: "plural tests"},
 		testCase{t: SymbolTransformer('.', 1), in: "ABC", out: ".ABC"},
 
-		testCase{ContextWithNumber(context.Background(), 100), NumbersCircumfix("_"), "Patrick1234", "100_Patrick1234_100"},
+		testCase{t: NumbersPrefix("-"), in: "Patrick1234", out: "1234-Patrick"},
+		testCase{t: NumbersSuffix("-"), in: "Patrick1234", out: "Patrick-1234"},
 		testCase{t: NumbersCircumfix("-"), in: "Patrick1234", out: "1234-Patrick-1234"},
 		testCase{ContextWithNumber(context.Background(), 100), NumbersPrefix("_"), "Patrick1234", "100_Patrick1234"},
-		testCase{t: NumbersPrefix("-"), in: "Patrick1234", out: "1234-Patrick"},
 		testCase{ContextWithNumber(context.Background(), 100), NumbersSuffix("_"), "1234Patrick", "1234Patrick_100"},
-		testCase{t: NumbersSuffix("-"), in: "Patrick1234", out: "Patrick-1234"},
+		testCase{ContextWithNumber(context.Background(), 100), NumbersCircumfix("_"), "Patrick1234", "100_Patrick1234_100"},
 
 		testCase{t: Homoglyph(ASCIIHomoglyphLetters), in: "bee", out: "6ee"},
 
 		testCase{t: IncrementalPrefix(2, "-"), in: "FOO", out: "1-FOO"},
 		testCase{t: IncrementalSuffix(2, "-"), in: "FOO", out: "FOO-1"},
 		testCase{t: IncrementalCircumfix(2, "-"), in: "FOO", out: "1-FOO-1"},
+
+		testCase{t: AbreviationPrefix, in: "Patrick Adrian Arvatu", out: "PAdrianArvatu"},
+		testCase{t: AbreviationSuffix, in: "Patrick Adrian Arvatu", out: "PatrickAdrianU"},
+		testCase{t: AbreviationCircumfix, in: "Patrick Adrian Arvatu", out: "PatrickAArvatu"},
 	)
 
 	// evaluate test cases.
