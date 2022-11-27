@@ -31,6 +31,12 @@ type Transformer interface {
 // is provided and suported by all layers.
 type TransformerFactory func(cfg *Config) (Transformer, bool)
 
+// errTooLong is a sentinel error. Used by applyAffix to differentiate between false ok value
+// returned from source or by the value being too long.
+//
+// errTooLong should not be returned by transformers, but be used to make further judgement.
+var errTooLong = errors.New("value too long")
+
 type affix int
 
 const (
@@ -55,7 +61,10 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 
 		add := cfg.Adjectives[i+padding]
 		out, ok, err := applyAffix(ctx, cfg, where, base, sep, add)
-		if err != nil || ok {
+		if ok {
+			return out, nil
+		}
+		if err != nil && err != errTooLong {
 			return out, err
 		}
 	}
@@ -78,7 +87,10 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 
 			add := cfg.Adjectives[j+padding]
 			out, ok, err := applyAffix(ctx, cfg, where, base, sep, add)
-			if err != nil || ok {
+			if ok {
+				return out, nil
+			}
+			if err != nil && err != errTooLong {
 				return out, err
 			}
 		}
@@ -99,7 +111,10 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 		for i := range vals {
 			add := cfg.Adjectives[i+chunks*n]
 			out, ok, err := applyAffix(ctx, cfg, where, base, sep, add)
-			if err != nil || ok {
+			if ok {
+				return out, nil
+			}
+			if err != nil && err != errTooLong {
 				return out, err
 			}
 		}
@@ -117,7 +132,7 @@ func applyAffix(ctx context.Context, cfg *Config, where affix, base, sep, add st
 	case suffix:
 		// too long.
 		if len(base)+len(sep)+len(add) > cfg.MaxLen {
-			return "", false, nil
+			return "", false, errTooLong
 		}
 
 		out := base + sep + add
@@ -127,7 +142,7 @@ func applyAffix(ctx context.Context, cfg *Config, where affix, base, sep, add st
 	case prefix:
 		// too long.
 		if len(base)+len(sep)+len(add) > cfg.MaxLen {
-			return "", false, nil
+			return "", false, errTooLong
 		}
 
 		out := add + sep + base
@@ -137,7 +152,7 @@ func applyAffix(ctx context.Context, cfg *Config, where affix, base, sep, add st
 	case circumfix:
 		// too long.
 		if len(base)+2*len(sep)+2*len(add) > cfg.MaxLen {
-			return "", false, nil
+			return "", false, errTooLong
 		}
 
 		out := add + sep + base + sep + add
