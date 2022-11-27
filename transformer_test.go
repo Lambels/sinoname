@@ -26,6 +26,9 @@ func TestTransformer(t *testing.T) {
 		testCase{ContextWithNumber(context.Background(), 100), NumbersSuffix("_"), "1234Patrick", "1234Patrick_100"},
 		testCase{t: NumbersSuffix("-"), in: "Patrick1234", out: "Patrick-1234"},
 		testCase{t: Homoglyph(ASCIIHomoglyphLetters), in: "bee", out: "6ee"},
+		testCase{t: IncrementalPrefix(2, "-"), in: "FOO", out: "1-FOO"},
+		testCase{t: IncrementalSuffix(2, "-"), in: "FOO", out: "FOO-1"},
+		testCase{t: IncrementalCircumfix(2, "-"), in: "FOO", out: "1-FOO-1"},
 	)
 
 	// evaluate test cases.
