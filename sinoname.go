@@ -11,19 +11,12 @@ type Generator struct {
 	// kept a copy for factory functions.
 	cfg *Config
 
-	// preventDefault is used to process the data from the layers and omit the default value.
+	// copies to prevent race conditions.
 	preventDuplicates bool
-
-	// maxLen is used both by the generator and layers, it checks that the initial input isnt
-	// longer then maxLen.
-	maxLen int
-
-	// maxVals buffers the values returned by the layers.
-	// the values returned from Generate will either be equal to maxVals or lower.
-	maxVals int
-
-	// layers represents the pipeline through which the initial message passes.
-	layers Layers
+	preventDefault    bool
+	maxLen            int
+	maxVals           int
+	layers            Layers
 }
 
 var splitOnDefault = []string{
@@ -71,6 +64,7 @@ func New(conf *Config) *Generator {
 		maxLen:            conf.MaxLen,
 		maxVals:           conf.MaxVals,
 		preventDuplicates: conf.PreventDuplicates,
+		preventDefault:    conf.PreventDefault,
 	}
 
 	return g
@@ -139,6 +133,7 @@ func (g *Generator) Generate(ctx context.Context, in string) ([]string, error) {
 	var read int
 	var vals []string
 	readVals := make(map[string]bool)
+	readVals[in] = g.preventDefault
 L:
 	for {
 		select {
@@ -150,7 +145,9 @@ L:
 			if readVals[val] {
 				continue
 			}
-			readVals[val] = true
+			if g.preventDuplicates {
+				readVals[val] = true
+			}
 
 			// increment read here so we dont have to wait for next itteration
 			// to check if we are at the last value.

@@ -17,6 +17,9 @@ type Config struct {
 	MaxVals int
 
 	// PreventDefault prevents the default value from being read by the consumer.
+	PreventDefault bool
+
+	// PreventDefault prevents duplicate values from being read by the consumer.
 	PreventDuplicates bool
 
 	// Source is used to validate if the products of the transformers are unique / valid.
