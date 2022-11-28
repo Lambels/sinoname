@@ -3,7 +3,6 @@ package sinoname
 import (
 	"context"
 	"strings"
-	"unicode"
 )
 
 var CamelCase = func(cfg *Config) (Transformer, bool) {
@@ -35,8 +34,6 @@ func (t *camelCaseTransformer) Transform(ctx context.Context, in string) (string
 }
 
 func ucCapitalFirst(val string) string {
-	for _, v := range val {
-		return string(unicode.ToUpper(v)) + val[len(string(v)):]
-	}
-	return ""
+	cap := ucCapital(val)
+	return cap + val[len(cap):]
 }
