@@ -91,6 +91,7 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 		maxConfidence += v.MaxConfidence
 	}
 
+	// CoW implementation.
 	for confidence := 0; confidence <= maxConfidence; confidence++ {
 		select {
 		case <-ctx.Done():
