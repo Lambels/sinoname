@@ -35,9 +35,12 @@ func TestTransformer(t *testing.T) {
 		testCase{t: IncrementalSuffix(2, "-"), in: "FOO", out: "FOO-1"},
 		testCase{t: IncrementalCircumfix(2, "-"), in: "FOO", out: "1-FOO-1"},
 
-		testCase{t: AbreviationPrefix, in: "Patrick Adrian Arvatu", out: "PAdrianArvatu"},
-		testCase{t: AbreviationSuffix, in: "Patrick Adrian Arvatu", out: "PatrickAdrianU"},
-		testCase{t: AbreviationCircumfix, in: "Patrick Adrian Arvatu", out: "PatrickAArvatu"},
+		testCase{t: AbreviationPrefix(false), in: "Patrick Adrian Arvatu", out: "PAdrianArvatu"},
+		testCase{t: AbreviationSuffix(false), in: "Patrick Adrian Arvatu", out: "PatrickAdrianA"},
+		testCase{t: AbreviationCircumfix(false), in: "Patrick Adrian Arvatu", out: "PatrickAArvatu"},
+		testCase{t: AbreviationPrefix(true), in: "Patrick Adrian Arvatu", out: "PAArvatu"},
+		testCase{t: AbreviationSuffix(true), in: "Patrick Adrian Arvatu", out: "PatrickAA"},
+		testCase{t: AbreviationCircumfix(true), in: "Patrick Adrian Arvatu", out: "PAA"},
 	)
 
 	// evaluate test cases.
