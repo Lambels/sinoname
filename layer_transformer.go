@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-// transformerLayer holds all the transformers belonging to it (statefull or not),
+// TransformerLayer holds all the transformers belonging to it (statefull or not),
 // when the layer runs it fans out all the messages it gets to all
 // the transformers it owns (first to the unstatefull then to the statefull).
 //
@@ -21,8 +21,6 @@ type TransformerLayer struct {
 	transformerFactories []TransformerFactory
 }
 
-// PumpOut recieves messages from the upstream layer via the in channel and passes them through the transformers.
-// The end products of the transformers are fed in the returned channel.
 func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan string) (<-chan string, error) {
 	if len(l.transformers) == 0 && len(l.transformerFactories) == 0 {
 		return nil, errors.New("sinoname: layer has no transformers")
