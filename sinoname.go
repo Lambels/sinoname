@@ -30,21 +30,14 @@ var splitOnDefault = []string{
 	" ",
 }
 
-// New creates a new generator with the provided config and Layer factories.
+// New creates a new generator with the provided config.
 func New(conf *Config) *Generator {
 	if conf == nil {
 		return nil
 	}
 
 	if conf.SplitOn == nil {
-		conf.SplitOn = splitOnDefault
-	} else {
-		oldNew := make([]string, len(conf.SplitOn)*2)
-		for i, v := range conf.SplitOn {
-			oldNew[i*2] = v
-			oldNew[i*2+1] = " "
-		}
-		conf.SplitOn = oldNew
+		conf.SplitOn = splitOnSpecial
 	}
 
 	// if adjectives provided, create a pool to share shuffle buffers around all circumfix,
@@ -70,6 +63,7 @@ func New(conf *Config) *Generator {
 	return g
 }
 
+// WithUniformTransformers adds the provided transformers in a uniform layer.
 func (g *Generator) WithUniformTransformers(tFact ...TransformerFactory) *Generator {
 	uLayer := &UniformTransformerLayer{
 		cfg:                  g.cfg,
@@ -89,6 +83,10 @@ func (g *Generator) WithUniformTransformers(tFact ...TransformerFactory) *Genera
 	return g
 }
 
+// WithTransformers adds the provided transformers in a layer (grouped together).
+//
+// This is the layer configuration which suits most use-cases, you should generally look
+// no further.
 func (g *Generator) WithTransformers(tFact ...TransformerFactory) *Generator {
 	tLayer := &TransformerLayer{
 		cfg:                  g.cfg,
@@ -108,6 +106,7 @@ func (g *Generator) WithTransformers(tFact ...TransformerFactory) *Generator {
 	return g
 }
 
+// WithLayers adds the provided layers to the generator in order.
 func (g *Generator) WithLayers(lFact ...LayerFactory) *Generator {
 	for _, f := range lFact {
 		l := f(g.cfg)

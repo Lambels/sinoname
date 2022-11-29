@@ -25,9 +25,12 @@ type Config struct {
 	// Source is used to validate if the products of the transformers are unique / valid.
 	Source Source
 
-	// SplitOn is a slice of symbols used by the case transformers (camel case, kebab case, ...)
-	// to decide where to split the word up and add their specific separator.
-	SplitOn []string
+	// SplitOn takes in a string and splits the string in fields.
+	// If SplitOn isnt provided, the default split function is used.
+	//
+	// The SplitOn function is used by transformers like:
+	// CamelCase, SnakeCase, ..., RandomOrder.
+	SplitOn func(string) []string
 
 	// Adjectives is a slice of adjectives to be used by suffix, prefix and circumfix transformers.
 	// Should be shuffled before referenced.
