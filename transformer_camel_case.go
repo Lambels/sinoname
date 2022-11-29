@@ -23,7 +23,7 @@ func (t *camelCaseTransformer) Transform(ctx context.Context, in string) (string
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in)
+	split := t.cfg.SplitOn(in)
 	for i := 1; i < len(split); i++ {
 		split[i] = ucCapitalFirst(split[i])
 	}

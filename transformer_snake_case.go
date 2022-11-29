@@ -23,7 +23,7 @@ func (t *snakeCaseTransformer) Transform(ctx context.Context, in string) (string
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in)
+	split := t.cfg.SplitOn(in)
 	out := strings.Join(split, "_")
 	if ok, err := t.cfg.Source.Valid(ctx, out); !ok || err != nil {
 		return in, err

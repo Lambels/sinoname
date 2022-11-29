@@ -77,7 +77,7 @@ func (t *numbersTransformer) Transform(ctx context.Context, in string) (string, 
 	}
 
 	// len(stripped + num) == len(in)
-	stripped, num := StripNumbers(in)
+	stripped, num := stripNumbers(in)
 	out, ok, err := applyAffix(ctx, t.cfg, t.where, stripped, t.sep, num)
 	if ok {
 		return out, nil

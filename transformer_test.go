@@ -15,7 +15,8 @@ func TestTransformer(t *testing.T) {
 	var testCases []testCase
 
 	testCases = append(testCases,
-		testCase{t: CamelCase, in: "-.camel -case test", out: "CamelCaseTest"},
+		testCase{t: CamelCase, in: "-.camel -case test", out: "camelCaseTest"},
+		testCase{t: PascalCase, in: "-.pascal -case test", out: "PascalCaseTest"},
 		testCase{t: KebabCase, in: "-.kebab -case test", out: "kebab-case-test"},
 		testCase{t: SnakeCase, in: "-.snake -case test", out: "snake_case_test"},
 
@@ -35,12 +36,12 @@ func TestTransformer(t *testing.T) {
 		testCase{t: IncrementalSuffix(2, "-"), in: "FOO", out: "FOO-1"},
 		testCase{t: IncrementalCircumfix(2, "-"), in: "FOO", out: "1-FOO-1"},
 
-		testCase{t: AbreviationPrefix(false), in: "Patrick Adrian Arvatu", out: "PAdrianArvatu"},
-		testCase{t: AbreviationSuffix(false), in: "Patrick Adrian Arvatu", out: "PatrickAdrianA"},
-		testCase{t: AbreviationCircumfix(false), in: "Patrick Adrian Arvatu", out: "PatrickAArvatu"},
-		testCase{t: AbreviationPrefix(true), in: "Patrick Adrian Arvatu", out: "PAArvatu"},
-		testCase{t: AbreviationSuffix(true), in: "Patrick Adrian Arvatu", out: "PatrickAA"},
-		testCase{t: AbreviationCircumfix(true), in: "Patrick Adrian Arvatu", out: "PAA"},
+		testCase{t: AbreviationPrefix("", false), in: "Patrick Adrian Arvatu", out: "PAdrianArvatu"},
+		testCase{t: AbreviationSuffix("", false), in: "Patrick Adrian Arvatu", out: "PatrickAdrianA"},
+		testCase{t: AbreviationCircumfix("", false), in: "Patrick Adrian Arvatu", out: "PatrickAArvatu"},
+		testCase{t: AbreviationPrefix("", true), in: "Patrick Adrian Arvatu", out: "PAArvatu"},
+		testCase{t: AbreviationSuffix("", true), in: "Patrick Adrian Arvatu", out: "PatrickAA"},
+		testCase{t: AbreviationCircumfix("", true), in: "Patrick Adrian Arvatu", out: "PAA"},
 	)
 
 	// evaluate test cases.
