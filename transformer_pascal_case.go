@@ -5,22 +5,25 @@ import (
 	"strings"
 )
 
-var CamelCase = func(cfg *Config) (Transformer, bool) {
-	return &camelCaseTransformer{
+// PascalCase splits on special characters and joins them back with capitalization.
+//
+// foo.bar_buz -> FooBarBuz
+var PascalCase = func(cfg *Config) (Transformer, bool) {
+	return &pascalCaseTransformer{
 		cfg: cfg,
 	}, false
 }
 
-type camelCaseTransformer struct {
+type pascalCaseTransformer struct {
 	cfg *Config
 }
 
-func (t *camelCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
+func (t *pascalCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
 	if len(in) > t.cfg.MaxLen {
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in, t.cfg.SplitOn)
+	split := SplitOnSpecial(in)
 	for i, word := range split {
 		split[i] = ucCapitalFirst(word)
 	}

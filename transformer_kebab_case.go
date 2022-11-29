@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// KebabCase splits on special characters and joins them back with "-".
+//
+// Foo.Bar_Buz -> Foo-Bar-Buz
 var KebabCase = func(cfg *Config) (Transformer, bool) {
 	return &kebabCaseTransformer{
 		cfg: cfg,
@@ -20,7 +23,7 @@ func (t *kebabCaseTransformer) Transform(ctx context.Context, in string) (string
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in, t.cfg.SplitOn)
+	split := SplitOnSpecial(in)
 	out := strings.Join(split, "-")
 	if ok, err := t.cfg.Source.Valid(ctx, out); !ok || err != nil {
 		return in, err

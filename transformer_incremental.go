@@ -5,6 +5,10 @@ import (
 	"strconv"
 )
 
+// IncrementalPrefix adds an incrementing integer to the end of the string.
+// The range of added numbers at the end of the string is [1, n].
+//
+// Foo1, Foo2, Foo3, Foo4 ... FooN
 var IncrementalPrefix = func(n int, sep string) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &incrementalTransformer{
@@ -16,6 +20,10 @@ var IncrementalPrefix = func(n int, sep string) func(cfg *Config) (Transformer, 
 	}
 }
 
+// IncrementalSuffix adds an incrementing integer to the beginning of the string.
+// The range of added numbers at the beginning of the string is [1, n].
+//
+// 1Foo, 2Foo, 3Foo, 4Foo ... NFoo
 var IncrementalSuffix = func(n int, sep string) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &incrementalTransformer{
@@ -27,6 +35,10 @@ var IncrementalSuffix = func(n int, sep string) func(cfg *Config) (Transformer, 
 	}
 }
 
+// IncrementalCircumfix adds an incrementing circumfix integer.
+// The range of added numbers at the end of the string is [1, n].
+//
+// 1Foo1, 2Foo2, 3Foo3, 4Foo4 ... NFooN
 var IncrementalCircumfix = func(n int, sep string) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &incrementalTransformer{

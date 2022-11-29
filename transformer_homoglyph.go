@@ -11,6 +11,7 @@ type ConfidenceMap struct {
 	MaxConfidence int
 }
 
+// ASCIIHomoglyphLetters maps ascii letters to their homoglyphs.
 var ASCIIHomoglyphLetters ConfidenceMap = ConfidenceMap{
 	Map: map[rune][]rune{
 		'b': {'6'},
@@ -40,6 +41,7 @@ var ASCIIHomoglyphLetters ConfidenceMap = ConfidenceMap{
 	MaxConfidence: 2,
 }
 
+// ASCIIHomoglyphNumbers maps ascii numbers to their homoglyphs.
 var ASCIIHomoglyphNumbers ConfidenceMap = ConfidenceMap{
 	Map: map[rune][]rune{
 		'0': {'O', 'o'},
@@ -50,6 +52,7 @@ var ASCIIHomoglyphNumbers ConfidenceMap = ConfidenceMap{
 	MaxConfidence: 1,
 }
 
+// ASCIIHomoglyphSymbols maps ascii symbols to their homoglyphs.
 var ASCIIHomoglyphSymbols ConfidenceMap = ConfidenceMap{
 	Map: map[rune][]rune{
 		'a': {'&', '@'},
@@ -67,6 +70,10 @@ var UnicodeHomoglyph map[rune][]rune = map[rune][]rune{}
 
 var UnicodeHomoglyphSymbols map[rune][]rune = map[rune][]rune{}
 
+// Homoglyph alters the string by replacing runes with their homoglyphs.
+//
+// The homoglyphs are provided by the confidece maps. The algorithm exhausts each confidence
+// map sequentially.
 var Homoglyph = func(homoglyphs ...ConfidenceMap) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &homoglyphTransformer{

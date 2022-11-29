@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+// Plural adds an s at the end of the string.
 var Plural = func(cfg *Config) (Transformer, bool) {
 	return &pluralTransformer{
 		cfg: cfg,

@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// SnakeCase splits on special characters and joins them back with "_".
+//
+// foo.bar_buz -> foo_bar_buz
 var SnakeCase = func(cfg *Config) (Transformer, bool) {
 	return &snakeCaseTransformer{
 		cfg: cfg,
@@ -20,7 +23,7 @@ func (t *snakeCaseTransformer) Transform(ctx context.Context, in string) (string
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in, t.cfg.SplitOn)
+	split := SplitOnSpecial(in)
 	out := strings.Join(split, "_")
 	if ok, err := t.cfg.Source.Valid(ctx, out); !ok || err != nil {
 		return in, err

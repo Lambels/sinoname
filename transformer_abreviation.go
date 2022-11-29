@@ -7,31 +7,63 @@ import (
 	"unicode/utf8"
 )
 
-var AbreviationPrefix = func(all bool) func(cfg *Config) (Transformer, bool) {
+// AbreviationPrefix abreviates words starting from the left going to the right.
+//
+// An extra parameter is accepted: all , when true all the words from the left are abreviated
+// but the last one.
+//
+// Examples:
+//
+// Foo-Bar Buz -> FBarBuz (all = false)
+//
+// Foo-Bar Buz -> FBBuz (all = true)
+var AbreviationPrefix = func(sep string, all bool) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &abreviationTransformer{
 			cfg:   cfg,
 			all:   all,
+			sep:   sep,
 			where: prefix,
 		}, false
 	}
 }
 
-var AbreviationSuffix = func(all bool) func(cfg *Config) (Transformer, bool) {
+// AbreviationSuffix abreviates words starting from the right going to the left.
+//
+// An extra parameter is accepted: all , when true all the words from the right are abreviated
+// but the first one.
+//
+// Examples:
+//
+// Foo-Bar Buz -> FooBarB (all = false)
+//
+// Foo-Bar Buz -> FooBB (all = true)
+var AbreviationSuffix = func(sep string, all bool) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &abreviationTransformer{
 			cfg:   cfg,
 			all:   all,
+			sep:   sep,
 			where: suffix,
 		}, false
 	}
 }
 
-var AbreviationCircumfix = func(all bool) func(cfg *Config) (Transformer, bool) {
+// AbreviationCircumfix abreviates the words in the middle of the string.
+//
+// An extra parameter is accepted: all , when true all the words are abreviated
+//
+// Examples:
+//
+// Foo-Bar Fuz Buz -> FooBFBuz (all = false)
+//
+// Foo-Bar Fuz Buz -> FBFB (all = true)
+var AbreviationCircumfix = func(sep string, all bool) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &abreviationTransformer{
 			cfg:   cfg,
 			all:   all,
+			sep:   sep,
 			where: circumfix,
 		}, false
 	}
@@ -40,6 +72,7 @@ var AbreviationCircumfix = func(all bool) func(cfg *Config) (Transformer, bool) 
 type abreviationTransformer struct {
 	cfg   *Config
 	all   bool
+	sep   string
 	where affix
 }
 
@@ -48,9 +81,8 @@ func (t *abreviationTransformer) Transform(ctx context.Context, in string) (stri
 		return in, nil
 	}
 
-	split := SplitOnSpecial(in, t.cfg.SplitOn)
+	split := t.cfg.SplitOn(in)
 	lastX := len(split) - 1
-	var out string
 
 	switch t.where {
 	case prefix:
@@ -61,10 +93,8 @@ func (t *abreviationTransformer) Transform(ctx context.Context, in string) (stri
 				split[i] = ucCapital(split[i])
 			}
 		}
-		out = strings.Join(split, "")
 
 	case suffix:
-
 		split[lastX] = ucCapital(split[lastX])
 
 		if t.all {
@@ -72,7 +102,6 @@ func (t *abreviationTransformer) Transform(ctx context.Context, in string) (stri
 				split[i] = ucCapital(split[i])
 			}
 		}
-		out = strings.Join(split, "")
 
 	case circumfix:
 		for i := 1; i < lastX; i++ {
@@ -82,7 +111,12 @@ func (t *abreviationTransformer) Transform(ctx context.Context, in string) (stri
 		if t.all {
 			split[0], split[lastX] = ucCapital(split[0]), ucCapital(split[lastX])
 		}
-		out = strings.Join(split, "")
+	}
+
+	out := strings.Join(split, t.sep)
+
+	if len(out) > t.cfg.MaxLen {
+		return in, nil
 	}
 
 	ok, err := t.cfg.Source.Valid(ctx, out)

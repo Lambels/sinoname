@@ -4,6 +4,11 @@ import (
 	"context"
 )
 
+// Prefix adds a prefix to the string.
+//
+// The prefix is obtained:
+//  1. From the context via the StringFromContext method.
+//  2. At random from the adjectives array provided in the config object.
 var Prefix = func(sep string) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &affixShuffleTransformer{
@@ -14,6 +19,11 @@ var Prefix = func(sep string) func(cfg *Config) (Transformer, bool) {
 	}
 }
 
+// Suffix adds a suffix to the string.
+//
+// The suffix is obtained:
+//  1. From the context via the StringFromContext method.
+//  2. At random from the adjectives array provided in the config object.
 var Suffix = func(sep string) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &affixShuffleTransformer{
@@ -24,6 +34,11 @@ var Suffix = func(sep string) func(cfg *Config) (Transformer, bool) {
 	}
 }
 
+// Circumfix adds a circumfix to the string.
+//
+// The circumfix is obtained:
+//  1. From the context via the StringFromContext method.
+//  2. At random from the adjectives array provided in the config object.
 var Circumfix = func(sep string) func(cfg *Config) (Transformer, bool) {
 	return func(cfg *Config) (Transformer, bool) {
 		return &affixShuffleTransformer{
