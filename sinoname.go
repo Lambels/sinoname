@@ -36,8 +36,11 @@ func New(conf *Config) *Generator {
 		return nil
 	}
 
-	if conf.SplitOn == nil {
-		conf.SplitOn = splitOnSpecial
+	if conf.Tokenize == nil {
+		conf.Tokenize = tokenizeDefault
+	}
+	if conf.StripNumbers == nil {
+		conf.StripNumbers = StripNumbersASCII
 	}
 
 	// if adjectives provided, create a pool to share shuffle buffers around all circumfix,

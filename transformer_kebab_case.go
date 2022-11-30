@@ -23,7 +23,7 @@ func (t *kebabCaseTransformer) Transform(ctx context.Context, in string) (string
 		return in, nil
 	}
 
-	split := t.cfg.SplitOn(in)
+	split := t.cfg.Tokenize(in)
 	out := strings.Join(split, "-")
 	if ok, err := t.cfg.Source.Valid(ctx, out); !ok || err != nil {
 		return in, err

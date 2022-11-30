@@ -25,12 +25,17 @@ type Config struct {
 	// Source is used to validate if the products of the transformers are unique / valid.
 	Source Source
 
-	// SplitOn takes in a string and splits the string in fields.
-	// If SplitOn isnt provided, the default split function is used.
+	// Tokenize takes in a string and forms tokens from the string.
+	// If Tokenize isnt provided, the default tokenize function is used.
 	//
-	// The SplitOn function is used by transformers like:
+	// The Tokenize function is used by transformers like:
 	// CamelCase, SnakeCase, ..., RandomOrder.
-	SplitOn func(string) []string
+	Tokenize func(string) []string
+
+	// StripNumbers takes in a string and splits the string into two strings:
+	// string containing the letters, string containing the string representation of the numbers.
+	// If StripNumbers isnt provided, the defualt StripNumbersASCII is used.
+	StripNumbers func(string) (string, string)
 
 	// Adjectives is a slice of adjectives to be used by suffix, prefix and circumfix transformers.
 	// Should be shuffled before referenced.

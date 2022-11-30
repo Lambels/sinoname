@@ -81,7 +81,7 @@ func (t *abreviationTransformer) Transform(ctx context.Context, in string) (stri
 		return in, nil
 	}
 
-	split := t.cfg.SplitOn(in)
+	split := t.cfg.Tokenize(in)
 	lastX := len(split) - 1
 
 	switch t.where {

@@ -23,7 +23,7 @@ func (t *pascalCaseTransformer) Transform(ctx context.Context, in string) (strin
 		return in, nil
 	}
 
-	split := t.cfg.SplitOn(in)
+	split := t.cfg.Tokenize(in)
 	for i, word := range split {
 		split[i] = ucCapitalFirst(word)
 	}
