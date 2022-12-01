@@ -40,7 +40,7 @@ func New(conf *Config) *Generator {
 		conf.Tokenize = tokenizeDefault
 	}
 	if conf.StripNumbers == nil {
-		conf.StripNumbers = StripNumbersASCII
+		conf.StripNumbers = stripNumbersASCII
 	}
 
 	// if adjectives provided, create a pool to share shuffle buffers around all circumfix,

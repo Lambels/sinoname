@@ -34,7 +34,7 @@ type Config struct {
 
 	// StripNumbers takes in a string and splits the string into two strings:
 	// string containing the letters, string containing the string representation of the numbers.
-	// If StripNumbers isnt provided, the defualt StripNumbersASCII is used.
+	// If StripNumbers isnt provided, the defualt stripNumbersASCII is used.
 	StripNumbers func(string) (string, string)
 
 	// Adjectives is a slice of adjectives to be used by suffix, prefix and circumfix transformers.
