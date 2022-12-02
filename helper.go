@@ -7,7 +7,7 @@ import (
 )
 
 func tokenizeDefault(in string) []string {
-	if !utf8.ValidString(in) {
+	if !utf8.ValidString(in) || in == "" {
 		return []string{in}
 	}
 
@@ -21,50 +21,48 @@ func tokenizeDefault(in string) []string {
 	// split on camel case.
 	for _, field := range split {
 		var lastClass int
+		var class int
 		var lastNumbers int
 
 		for i, r := range field {
-			switch true {
+			switch {
 			case unicode.IsUpper(r):
-				if lastNumbers > 1 {
-					split := field[i-lastNumbers : i]
-					runes = append(runes, []rune(split))
-
-					runes = append(runes, []rune{r})
-				} else if lastClass != 1 {
-					runes = append(runes, []rune(field[i-lastNumbers:i+utf8.RuneLen(r)]))
-				} else {
-					runes[len(runes)-1] = append(runes[len(runes)-1], []rune(field[i-lastNumbers:i+utf8.RuneLen(r)])...)
-				}
-
-				lastNumbers = 0
-				lastClass = 1
+				class = 1
 
 			case unicode.IsNumber(r):
 				lastNumbers++
+				continue
 
 			default:
-				if lastNumbers > 1 {
-					split := field[i-lastNumbers : i]
-					runes = append(runes, []rune(split))
-
-					runes = append(runes, []rune{r})
-				} else if lastClass != 2 {
-					runes = append(runes, []rune(field[i-lastNumbers:i+utf8.RuneLen(r)]))
-				} else {
-					runes[len(runes)-1] = append(runes[len(runes)-1], []rune(field[i-lastNumbers:i+utf8.RuneLen(r)])...)
-				}
-
-				lastNumbers = 0
-				lastClass = 2
+				class = 2
 			}
+
+			// split on numbers.
+			if lastNumbers > 1 {
+				split := field[i-lastNumbers : i]
+				runes = append(runes, []rune(split))
+
+				// trigger a split regardless.
+				class = -1
+				lastNumbers = 0 // lastNumbers accounted for.
+			}
+
+			width := utf8.RuneLen(r)
+			if class != lastClass {
+				runes = append(runes, []rune(field[i-lastNumbers:i+width]))
+			} else {
+				runes[len(runes)-1] = append(runes[len(runes)-1], []rune(field[i-lastNumbers:i+width])...)
+			}
+
+			lastNumbers = 0
+			lastClass = class
 		}
 
 		// handle trailing numbers.
-		if lastNumbers > 1 {
+		if lastNumbers > 1 { // create separate field.
 			split := field[len(field)-lastNumbers:]
 			runes = append(runes, []rune(split))
-		} else if lastNumbers > 0 {
+		} else if lastNumbers > 0 { // attach number at trailing field.
 			runes[len(runes)-1] = append(runes[len(runes)-1], rune(field[len(field)-1]))
 		}
 	}
