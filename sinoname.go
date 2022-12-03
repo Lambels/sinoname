@@ -8,15 +8,9 @@ import (
 
 // Generator provides extra functionality on top of the layers.
 type Generator struct {
-	// kept a copy for factory functions.
 	cfg *Config
 
-	// copies to prevent race conditions.
-	preventDuplicates bool
-	preventDefault    bool
-	maxLen            int
-	maxVals           int
-	layers            Layers
+	layers Layers
 }
 
 var splitOnDefault = []string{
@@ -56,11 +50,7 @@ func New(conf *Config) *Generator {
 	}
 
 	g := &Generator{
-		cfg:               conf,
-		maxLen:            conf.MaxLen,
-		maxVals:           conf.MaxVals,
-		preventDuplicates: conf.PreventDuplicates,
-		preventDefault:    conf.PreventDefault,
+		cfg: conf,
 	}
 
 	return g
@@ -122,7 +112,7 @@ func (g *Generator) WithLayers(lFact ...LayerFactory) *Generator {
 // Generate passes the in field through the pipeline of transformers. The process can be
 // aborted by cancelling the context passed.
 func (g *Generator) Generate(ctx context.Context, in string) ([]string, error) {
-	if len(in) > g.maxLen {
+	if len(in) > g.cfg.MaxLen {
 		return nil, errors.New("sinoname: value is too long")
 	}
 
@@ -135,7 +125,7 @@ func (g *Generator) Generate(ctx context.Context, in string) ([]string, error) {
 	var read int
 	var vals []string
 	readVals := make(map[string]bool)
-	readVals[in] = g.preventDefault
+	readVals[in] = g.cfg.PreventDefault
 L:
 	for {
 		select {
@@ -147,7 +137,7 @@ L:
 			if readVals[val] {
 				continue
 			}
-			if g.preventDuplicates {
+			if g.cfg.PreventDuplicates {
 				readVals[val] = true
 			}
 
@@ -157,7 +147,7 @@ L:
 			// the next itteration can be slow.
 			read++
 
-			if read == g.maxVals || !ok {
+			if read == g.cfg.MaxVals || !ok {
 				// last value.
 				if ok {
 					vals = append(vals, val)
