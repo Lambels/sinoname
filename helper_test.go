@@ -38,3 +38,21 @@ func TestTokenizeDefault(t *testing.T) {
 		}
 	}
 }
+
+func TestStripNumbersASCII(t *testing.T) {
+	in := "123L᠑mb3ls34"
+
+	letters, numbers := stripNumbersASCII(in)
+	if letters != "L᠑mbls" || numbers != "123334" {
+		t.Fatalf("123L᠑mb3ls34 -> L᠑mbls, 123334 but got %v, %v", letters, numbers)
+	}
+}
+
+func TestStripNumbersUnicode(t *testing.T) {
+	in := "123L᠑mb3ls34"
+
+	letters, numbers := StripNumbersUnicode(in)
+	if letters != "Lmbls" || numbers != "123᠑334" {
+		t.Fatalf("123L᠑mb3ls34 -> Lmbls, 123᠑334 but got %v, %v", letters, numbers)
+	}
+}
