@@ -57,11 +57,6 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	fanOutC <- in
 	close(fanOutC)
 
-	// unbuffered sink channel consumed by sinoname.Generator .
-	sinkC := make(chan string)
-
-	ctx = context.WithValue(ctx, sinkKey{}, sinkC)
-
 	// the errgroup is used to stop all layers once one of the layers
 	// encounters an error from the source, rendering the source unreliable.
 	g, ctx := errgroup.WithContext(ctx)
@@ -96,32 +91,5 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	}
 	fanInC = lastOutC
 
-	// bridge go-routine between fanInC and sinkC.
-	// used to decouple the layers with the sinkC so that a shortcut form each layer
-	// can occur by sending a value directly to the sinkC.
-	//
-	// the sinkC is available via the SinkFromContext() .
-	go func() {
-		defer close(sinkC)
-
-		for {
-			select {
-			case v, ok := <-fanInC:
-				if !ok {
-					return
-				}
-
-				select {
-				case sinkC <- v:
-				case <-ctx.Done():
-					return
-				}
-
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
-
-	return sinkC, clnUp, nil
+	return fanInC, clnUp, nil
 }
