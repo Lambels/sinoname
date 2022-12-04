@@ -29,14 +29,3 @@ func StringFromContext(ctx context.Context) (string, bool) {
 	v, ok := ctx.Value(stringKey{}).(string)
 	return v, ok
 }
-
-type sinkKey struct{}
-
-// SinkFromContext gets the sink channel from the context value.
-//
-// You can use this function to get the make messages skip the pipeline in certain points when
-// paired with ErrSkip.
-func SinkFromContext(ctx context.Context) (chan<- string, bool) {
-	v, ok := ctx.Value(sinkKey{}).(chan string)
-	return v, ok
-}
