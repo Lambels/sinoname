@@ -6,6 +6,11 @@ import (
 	"unicode/utf8"
 )
 
+const (
+	capital = 1
+	other   = 2
+)
+
 func tokenizeDefault(in string) []string {
 	if !utf8.ValidString(in) || in == "" {
 		return []string{in}
@@ -27,14 +32,14 @@ func tokenizeDefault(in string) []string {
 		for i, r := range field {
 			switch {
 			case unicode.IsUpper(r):
-				class = 1
+				class = capital
 
 			case unicode.IsNumber(r):
 				lastNumbers++
 				continue
 
 			default:
-				class = 2
+				class = other
 			}
 
 			// split on numbers.
