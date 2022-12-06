@@ -7,6 +7,9 @@ import (
 	"gonum.org/v1/gonum/stat/combin"
 )
 
+//TODO: test if we can start with a random permution and rule it out with an if check.
+//TODO: add test.
+
 // ShuffleOrder shuffles the order of the tokens (fields) which make the string up.
 // The shuffle isnt random, it takes all the possible permutations for the tokenized input.
 //
@@ -27,13 +30,13 @@ type shuffleOrderTransformer struct {
 	sep string
 }
 
-func (t *shuffleOrderTransformer) Transform(ctx context.Context, in string) (string, error) {
-	split := t.cfg.Tokenize(in)
+func (t *shuffleOrderTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
+	split := t.cfg.Tokenize(in.Message)
 
 	// "Lam", "be", "ls" -> Lam_be_ls
 	//
 	// subtract the extra separator. len("Lam_be_ls_") - len("_") = len("Lam_be_ls")
-	if len(split)*len(t.sep)-len(t.sep) > t.cfg.MaxLen {
+	if len(split)*len(t.sep)-len(t.sep) > t.cfg.MaxBytes {
 		return in, nil
 	}
 
@@ -49,8 +52,9 @@ func (t *shuffleOrderTransformer) Transform(ctx context.Context, in string) (str
 		}
 
 		out := strings.Join(copyBuf, t.sep)
-		if ok, err := t.cfg.Source.Valid(ctx, out); !ok || err != nil {
-			return out, err
+		if ok, err := t.cfg.Source.Valid(ctx, out); ok || err != nil {
+			in.setAndIncrement(out)
+			return in, err
 		}
 	}
 
