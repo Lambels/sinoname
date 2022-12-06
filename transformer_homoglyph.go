@@ -66,7 +66,9 @@ var ASCIIHomoglyphSymbols ConfidenceMap = ConfidenceMap{
 	MaxConfidence: 1,
 }
 
-var UnicodeHomoglyph map[rune][]rune = map[rune][]rune{}
+var UnicodeHomoglyph map[rune][]rune = map[rune][]rune{
+	'a': {'᠑'},
+}
 
 var UnicodeHomoglyphSymbols map[rune][]rune = map[rune][]rune{}
 
@@ -88,11 +90,7 @@ type homoglyphTransformer struct {
 	homoglyphs []ConfidenceMap
 }
 
-func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in)+utf8.UTFMax > t.cfg.MaxLen {
-		return in, nil
-	}
-
+func (t *homoglyphTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
 	var maxConfidence int
 	for _, v := range t.homoglyphs {
 		maxConfidence += v.MaxConfidence
@@ -102,13 +100,13 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 	for confidence := 0; confidence <= maxConfidence; confidence++ {
 		select {
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return MessagePacket{}, ctx.Err()
 		default:
 		}
 
 		var b strings.Builder
 		var next string
-		for i, c := range in {
+		for i, c := range in.Message {
 			r := t.getRune(c, confidence)
 			if r == c && c != utf8.RuneError {
 				continue
@@ -116,7 +114,7 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 
 			var width int
 			if c == utf8.RuneError {
-				c, width = utf8.DecodeRuneInString(in[i:])
+				c, width = utf8.DecodeRuneInString(in.Message[i:])
 				// intended RuneError val.
 				if width != 1 && r == c {
 					continue
@@ -125,16 +123,19 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 				width = utf8.RuneLen(c)
 			}
 
-			// changed rune, allocate buffer.
-			b.Grow(len(in) + utf8.UTFMax)
-			b.WriteString(in[:i])
+			// check if there is space for this rune replacement. (string can grow: ASCII -> UNICODE)
+			if n, rWidth := t.cfg.MaxBytes-len(in.Message[i+width:]), utf8.RuneLen(r); n-rWidth < 0 {
+				continue
+			}
 
+			// changed rune + enough space -> allocate buffer.
+			b.Grow(len(in.Message) + utf8.UTFMax)
+			b.WriteString(in.Message[:i])
 			if r >= 0 {
 				b.WriteRune(r)
 			}
-
 			// skip current letter.
-			next = in[i+width:]
+			next = in.Message[i+width:]
 			break
 		}
 
@@ -147,57 +148,83 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in string) (string
 		out := b.String() + next
 		ok, err := t.cfg.Source.Valid(ctx, out)
 		if err != nil {
-			return "", err
+			return MessagePacket{}, err
 		}
 		if ok {
-			return out, nil
+			in.setAndIncrement(out)
+			return in, nil
 		}
 
 		// write values to buffer whilst always keeping space for at least the bytes remaining
 		// in next.
-		remainingBytes := t.cfg.MaxLen - b.Len()
+		remainingBytes := t.cfg.MaxBytes - b.Len()
+	L:
 		for i, c := range next {
+			cWidth := utf8.RuneLen(c)
 			r := t.getRune(c, confidence)
 
 			var width int
-			if n := remainingBytes - len(next[i:]); n < utf8.UTFMax {
-				width = utf8.RuneLen(r)
-				if width > n {
-					b.WriteString(next[i:])
-					break
-				}
+			switch n := remainingBytes - len(next[i+cWidth:]); {
+			case n >= utf8.UTFMax: // enough space for any character.
 				if r >= 0 {
 					if r < utf8.RuneSelf {
 						b.WriteByte(byte(r))
+						width = 1
 					} else {
-						// r is not a ASCII rune.
-						b.WriteRune(r)
+						width, _ = b.WriteRune(r)
 					}
 				}
-			} else if r >= 0 {
-				if r < utf8.RuneSelf {
-					b.WriteByte(byte(r))
-					width = 1
-				} else {
-					// r is not a ASCII rune.
-					width, _ = b.WriteRune(r)
-				}
-			}
 
+			case n > 0:
+				width = utf8.RuneLen(r)
+
+				if width == n { // write and exit (no more space after.).
+					if r >= 0 {
+						if r < utf8.RuneSelf {
+							b.WriteByte(byte(r))
+						} else {
+							b.WriteRune(r)
+						}
+					}
+					b.WriteString(next[i+cWidth:])
+					break L
+				} else if width < n { // write and continue (there will still be space left).
+					if r >= 0 {
+						if r < utf8.RuneSelf {
+							b.WriteByte(byte(r))
+						} else {
+							b.WriteRune(r)
+						}
+					}
+				} else { // write unmodified rune and continue (there is still space for the unmodified rune).
+					width, _ = b.WriteRune(c)
+				}
+
+			default: // no more space left. write remaining string and break.
+				b.WriteString(next[i:])
+				break L
+			}
 			remainingBytes -= width
-			out := b.String() + next[i+width:]
+
+			// check current variation and see if it is unique.
+			out := b.String() + next[i+cWidth:]
 			ok, err := t.cfg.Source.Valid(ctx, out)
 			if err != nil {
-				return "", err
+				return MessagePacket{}, err
 			}
 			if ok {
-				return out, nil
+				in.setAndIncrement(out)
+				return in, nil
 			}
 		}
 
+		// reached when b.Len() == maxBytes.
 		out = b.String()
-		_, err = t.cfg.Source.Valid(ctx, out)
-		return out, err
+		ok, err = t.cfg.Source.Valid(ctx, out)
+		if ok {
+			in.setAndIncrement(out)
+		}
+		return in, err
 	}
 
 	return in, nil
