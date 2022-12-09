@@ -7,19 +7,19 @@ type syncOut struct {
 	closeC   chan struct{}
 
 	stateC chan *state
-	outC   chan<- string
+	outC   chan<- MessagePacket
 }
 
 type state struct {
 	waiters map[int]chan struct{}
 	n       int
-	buf     []string
+	buf     []MessagePacket
 }
 
 // flushAndNotify flushed all the buf values to out and notifies all the waiters.
 //
 // must be called with ownership to state.
-func (s *state) flushAndNotify(to chan<- string, closeC chan struct{}) {
+func (s *state) flushAndNotify(to chan<- MessagePacket, closeC chan struct{}) {
 	// loop inversly to get potentially more "precious" messages at the end of the
 	// buffer.
 	for i := len(s.buf) - 1; i >= 0; i-- {
@@ -48,7 +48,7 @@ func (s *state) flushAndNotify(to chan<- string, closeC chan struct{}) {
 	}
 }
 
-func newSyncOut(n int, out chan<- string) *syncOut {
+func newSyncOut(n int, out chan<- MessagePacket) *syncOut {
 	b := &syncOut{
 		nWriters: n,
 		closeC:   make(chan struct{}),
@@ -59,7 +59,7 @@ func newSyncOut(n int, out chan<- string) *syncOut {
 
 	s := &state{
 		waiters: make(map[int]chan struct{}),
-		buf:     make([]string, 0),
+		buf:     make([]MessagePacket, 0),
 	}
 
 	b.stateC <- s
@@ -67,10 +67,11 @@ func newSyncOut(n int, out chan<- string) *syncOut {
 }
 
 // close closes the out channel and makes write calls stop blocking and no-op.
-func (b *syncOut) close() {
+func (b *syncOut) Close() error {
 	close(b.closeC)
 	<-b.stateC
 	close(b.outC)
+	return nil
 }
 
 // wait starts waiting on id.
@@ -88,7 +89,7 @@ func (b *syncOut) wait(s *state, id int) bool {
 }
 
 // advance advances the writer without writing any actuall value.
-func (b *syncOut) advance(id int) bool {
+func (b *syncOut) Advance(id int) bool {
 	select {
 	case state := <-b.stateC:
 		// if there is already a waiter for this id, void this entry.
@@ -116,7 +117,7 @@ func (b *syncOut) advance(id int) bool {
 
 // write writes one value to the buf and then waits for the other write calls to write their
 // value then unblocks.
-func (b *syncOut) write(id int, val string) bool {
+func (b *syncOut) Write(id int, val MessagePacket) bool {
 	select {
 	case state := <-b.stateC:
 		// if there is already a waiter for this id, void this entry.
