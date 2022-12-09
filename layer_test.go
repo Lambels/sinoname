@@ -12,13 +12,14 @@ type timeoutTransformer struct {
 	d   time.Duration
 }
 
-func (t timeoutTransformer) Transform(ctx context.Context, val string) (string, error) {
+func (t timeoutTransformer) Transform(ctx context.Context, val MessagePacket) (MessagePacket, error) {
 	select {
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return MessagePacket{}, ctx.Err()
 
 	case <-time.After(t.d):
-		return val + t.add, nil
+		val.Message = val.Message + t.add
+		return val, nil
 	}
 }
 
@@ -28,20 +29,20 @@ func newTimeoutTransformer(add string, d time.Duration) TransformerFactory {
 	}
 }
 
-type shortcutTransformer struct {
-	add string
+type skipTransformer struct {
+	add  string
+	skip int
 }
 
-func (t shortcutTransformer) Transform(ctx context.Context, in string) (string, error) {
-	sink, _ := SinkFromContext(ctx)
-
-	sink <- in + t.add
-	return "", ErrSkip
+func (t skipTransformer) Transform(ctx context.Context, val MessagePacket) (MessagePacket, error) {
+	val.Skip = t.skip
+	val.Message += t.add
+	return val, nil
 }
 
-func newShortcutTransformer(add string) TransformerFactory {
+func newSkipTransformer(add string, skip int) TransformerFactory {
 	return func(cfg *Config) (Transformer, bool) {
-		return shortcutTransformer{add}, false
+		return skipTransformer{add, skip}, false
 	}
 }
 
@@ -49,8 +50,8 @@ type errTransformer struct {
 	err error
 }
 
-func (t errTransformer) Transform(context.Context, string) (string, error) {
-	return "", t.err
+func (t errTransformer) Transform(context.Context, MessagePacket) (MessagePacket, error) {
+	return MessagePacket{}, t.err
 }
 
 func newErrorTransformer(err error) TransformerFactory {
@@ -63,9 +64,10 @@ type statefullTransformer struct {
 	state int32
 }
 
-func (t *statefullTransformer) Transform(ctx context.Context, in string) (string, error) {
+func (t *statefullTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
 	state := atomic.AddInt32(&t.state, 1)
-	return fmt.Sprintf("%v:%d", in, state), nil
+	in.Message = fmt.Sprintf("%v:%d", in, state)
+	return in, nil
 }
 
 func newStatefullTransformer() TransformerFactory {
