@@ -7,10 +7,10 @@ import (
 
 func TestSyncBufWrite(t *testing.T) {
 	t.Run("1_writer", func(t *testing.T) {
-		syncBuf := newSyncOut(1, make(chan string, 1))
+		syncBuf := newSyncOut(1, make(chan MessagePacket, 1))
 
 		select {
-		case <-writeNotify(syncBuf, 1, "val"):
+		case <-writeNotify(syncBuf, 1, MessagePacket{"val", 0, 0}):
 
 		case <-time.After(20 * time.Millisecond):
 			t.Fatal("write with single writer shouldnt block")
@@ -18,16 +18,16 @@ func TestSyncBufWrite(t *testing.T) {
 	})
 
 	t.Run("2_writers", func(t *testing.T) {
-		out := make(chan string, 2)
+		out := make(chan MessagePacket, 2)
 		syncBuf := newSyncOut(2, out)
 
 		go func() {
 			time.Sleep(2 * time.Second)
-			syncBuf.write(1, "val2")
+			syncBuf.Write(1, MessagePacket{"val2", 0, 0})
 		}()
 
 		select {
-		case <-writeNotify(syncBuf, 2, "val1"):
+		case <-writeNotify(syncBuf, 2, MessagePacket{"val1", 0, 0}):
 			v1, v2 := <-out, <-out
 			if v1 == v2 {
 				t.Fatal("got same value")
@@ -40,16 +40,16 @@ func TestSyncBufWrite(t *testing.T) {
 }
 
 func TestSyncBufClose(t *testing.T) {
-	out := make(chan string, 2)
+	out := make(chan MessagePacket, 2)
 	syncBuf := newSyncOut(2, out)
 
 	go func() {
 		time.Sleep(1 * time.Second)
-		syncBuf.close()
+		syncBuf.Close()
 	}()
 
 	select {
-	case <-writeNotify(syncBuf, 1, "val1"):
+	case <-writeNotify(syncBuf, 1, MessagePacket{"val1", 0, 0}):
 		select {
 		case _, ok := <-out:
 			if ok {
@@ -64,10 +64,10 @@ func TestSyncBufClose(t *testing.T) {
 	}
 }
 
-func writeNotify(buf *syncOut, id int, val string) <-chan struct{} {
+func writeNotify(buf *syncOut, id int, val MessagePacket) <-chan struct{} {
 	ch := make(chan struct{}, 1)
 	go func() {
-		buf.write(id, val)
+		buf.Write(id, val)
 		ch <- struct{}{}
 	}()
 

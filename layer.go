@@ -36,7 +36,7 @@ import (
 type Layer interface {
 	// PumpOut handles reads messages from the channel, processes them and sends them through
 	// the out channel.
-	PumpOut(context.Context, *errgroup.Group, <-chan string) (<-chan string, error)
+	PumpOut(context.Context, *errgroup.Group, <-chan MessagePacket) (<-chan MessagePacket, error)
 }
 
 // LayerFactory takes in a config object and returns a new layer.
@@ -47,13 +47,13 @@ type Layers []Layer
 
 // Run runs all the layers it owns returning a channel to read from and a cleanup function
 // which must be called in order to free all resources.
-func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error, error) {
+func (s Layers) Run(ctx context.Context, in MessagePacket) (<-chan MessagePacket, func() error, error) {
 	if len(s) == 0 {
 		return nil, func() error { return nil }, errors.New("sinoname: generator has no layers")
 	}
 
 	// fanOutC is used to fanOut messages to the first layer.
-	fanOutC := make(chan string, 1)
+	fanOutC := make(chan MessagePacket, 1)
 	fanOutC <- in
 	close(fanOutC)
 
@@ -78,10 +78,10 @@ func (s Layers) Run(ctx context.Context, in string) (<-chan string, func() error
 	//
 	// it is closed when either the context is cancelled by an error or explicit cancelation by the client
 	// or generator.
-	var fanInC <-chan string
+	var fanInC <-chan MessagePacket
 	// start layers pipeline.
 	var err error
-	var lastOutC <-chan string
+	var lastOutC <-chan MessagePacket
 	lastOutC = fanOutC
 	for _, layer := range s {
 		lastOutC, err = layer.PumpOut(ctx, g, lastOutC)

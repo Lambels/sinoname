@@ -57,17 +57,14 @@ type incrementalTransformer struct {
 	sep   string
 }
 
-func (t *incrementalTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in) > t.cfg.MaxLen {
-		return in, nil
-	}
-
+func (t *incrementalTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
 	for i := 1; i <= t.n; i++ {
 		add := strconv.Itoa(i)
 
-		out, ok, err := applyAffix(ctx, t.cfg, t.where, in, t.sep, add)
+		out, ok, err := applyAffix(ctx, t.cfg, t.where, in.Message, t.sep, add)
 		if ok {
-			return out, nil
+			in.setAndIncrement(out)
+			return in, nil
 		}
 
 		if err != nil {

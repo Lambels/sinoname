@@ -18,12 +18,8 @@ type pascalCaseTransformer struct {
 	cfg *Config
 }
 
-func (t *pascalCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in) > t.cfg.MaxLen {
-		return in, nil
-	}
-
-	split := t.cfg.Tokenize(in)
+func (t *pascalCaseTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
+	split := t.cfg.Tokenize(in.Message)
 	for i, word := range split {
 		split[i] = ucCapitalFirst(word)
 	}
@@ -33,7 +29,8 @@ func (t *pascalCaseTransformer) Transform(ctx context.Context, in string) (strin
 		return in, err
 	}
 
-	return out, nil
+	in.setAndIncrement(out)
+	return in, nil
 }
 
 func ucCapitalFirst(val string) string {

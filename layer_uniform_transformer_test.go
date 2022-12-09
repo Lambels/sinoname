@@ -15,7 +15,7 @@ func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
 		tr, _ := Noop(nil)
 		layer := newUniformLayer(tr)
 
-		producer := make(chan string)
+		producer := make(chan MessagePacket)
 		sink, err := layer.PumpOut(context.Background(), &errgroup.Group{}, producer)
 		if err != nil {
 			t.Fatal(err)
@@ -39,8 +39,8 @@ func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
 			timeoutTransformer{add: "2", d: 2 * time.Second},
 		)
 
-		producer := make(chan string, 1)
-		producer <- ""
+		producer := make(chan MessagePacket, 1)
+		producer <- MessagePacket{}
 		close(producer)
 
 		sink, err := layer.PumpOut(context.Background(), &errgroup.Group{}, producer)
@@ -79,9 +79,9 @@ func TestUniformLayerCancelCtx(t *testing.T) {
 			timeoutTransformer{add: "2", d: 10 * time.Second},
 		)
 
-		producer := make(chan string, 2)
-		producer <- ""
-		producer <- ""
+		producer := make(chan MessagePacket, 2)
+		producer <- MessagePacket{}
+		producer <- MessagePacket{}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
@@ -110,8 +110,8 @@ func TestUniformLayerCancelCtx(t *testing.T) {
 			timeoutTransformer{add: "1", d: 1 * time.Second},
 		)
 
-		producer := make(chan string, 1)
-		producer <- ""
+		producer := make(chan MessagePacket, 1)
+		producer <- MessagePacket{}
 
 		g, ctx := errgroup.WithContext(context.Background())
 		sink, err := layer.PumpOut(ctx, g, producer)
@@ -133,10 +133,10 @@ func TestUniformLayerCancelCtx(t *testing.T) {
 func TestUniformBatch(t *testing.T) {
 	t.Parallel()
 
-	producer := make(chan string, 3)
-	producer <- ""
-	producer <- ""
-	producer <- ""
+	producer := make(chan MessagePacket, 3)
+	producer <- MessagePacket{}
+	producer <- MessagePacket{}
+	producer <- MessagePacket{}
 	close(producer)
 
 	layer := newUniformLayer(

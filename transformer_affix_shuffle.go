@@ -55,11 +55,12 @@ type affixShuffleTransformer struct {
 	sep   string
 }
 
-func (t *affixShuffleTransformer) Transform(ctx context.Context, in string) (string, error) {
+func (t *affixShuffleTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
 	if v, ok := StringFromContext(ctx); ok {
-		out, ok, err := applyAffix(ctx, t.cfg, t.where, in, t.sep, v)
+		out, ok, err := applyAffix(ctx, t.cfg, t.where, in.Message, t.sep, v)
 		if err != nil || ok {
-			return out, err
+			in.setAndIncrement(out)
+			return in, err
 		}
 	}
 
