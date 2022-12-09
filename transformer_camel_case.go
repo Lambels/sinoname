@@ -18,12 +18,12 @@ type camelCaseTransformer struct {
 	cfg *Config
 }
 
-func (t *camelCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in) > t.cfg.MaxLen {
+func (t *camelCaseTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
+	if len(in.Message) > t.cfg.MaxBytes {
 		return in, nil
 	}
 
-	split := t.cfg.Tokenize(in)
+	split := t.cfg.Tokenize(in.Message)
 	for i := 1; i < len(split); i++ {
 		split[i] = ucCapitalFirst(split[i])
 	}
@@ -33,5 +33,6 @@ func (t *camelCaseTransformer) Transform(ctx context.Context, in string) (string
 		return in, err
 	}
 
-	return out, nil
+	in.setAndIncrement(out)
+	return in, nil
 }

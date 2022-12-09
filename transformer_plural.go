@@ -15,15 +15,16 @@ type pluralTransformer struct {
 	cfg *Config
 }
 
-func (t *pluralTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in)+1 > t.cfg.MaxLen {
+func (t *pluralTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
+	if len(in.Message)+1 > t.cfg.MaxBytes {
 		return in, nil
 	}
-	out := in + "s"
+	out := in.Message + "s"
 
 	if ok, err := t.cfg.Source.Valid(ctx, out); !ok || err != nil {
 		return in, err
 	}
 
-	return out, nil
+	in.setAndIncrement(out)
+	return in, nil
 }

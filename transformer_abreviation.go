@@ -76,12 +76,12 @@ type abreviationTransformer struct {
 	where affix
 }
 
-func (t *abreviationTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in) > t.cfg.MaxLen {
+func (t *abreviationTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
+	if len(in.Message) > t.cfg.MaxBytes {
 		return in, nil
 	}
 
-	split := t.cfg.Tokenize(in)
+	split := t.cfg.Tokenize(in.Message)
 	lastX := len(split) - 1
 
 	switch t.where {
@@ -115,13 +115,14 @@ func (t *abreviationTransformer) Transform(ctx context.Context, in string) (stri
 
 	out := strings.Join(split, t.sep)
 
-	if len(out) > t.cfg.MaxLen {
+	if len(out) > t.cfg.MaxBytes {
 		return in, nil
 	}
 
 	ok, err := t.cfg.Source.Valid(ctx, out)
 	if ok || err != nil {
-		return out, err
+		in.setAndIncrement(out)
+		return in, err
 	}
 
 	return in, nil

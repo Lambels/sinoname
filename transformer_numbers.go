@@ -59,27 +59,29 @@ type numbersTransformer struct {
 	sep   string
 }
 
-func (t *numbersTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in)+len(t.sep) > t.cfg.MaxLen {
+func (t *numbersTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
+	if len(in.Message)+len(t.sep) > t.cfg.MaxBytes {
 		return in, nil
 	}
 
 	if v, ok := NumberFromContext(ctx); ok {
 		num := strconv.Itoa(v)
-		out, ok, err := applyAffix(ctx, t.cfg, t.where, in, t.sep, num)
+		out, ok, err := applyAffix(ctx, t.cfg, t.where, in.Message, t.sep, num)
 		if ok {
-			return out, nil
+			in.setAndIncrement(out)
+			return in, nil
 		}
 
 		if err != nil && err != errTooLong {
-			return out, err
+			return MessagePacket{}, err
 		}
 	}
 
-	stripped, num := t.cfg.StripNumbers(in)
+	stripped, num := t.cfg.StripNumbers(in.Message)
 	out, ok, err := applyAffix(ctx, t.cfg, t.where, stripped, t.sep, num)
 	if ok {
-		return out, nil
+		in.setAndIncrement(out)
+		return in, nil
 	}
 
 	// errTooLong voided.

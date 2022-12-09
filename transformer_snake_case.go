@@ -18,16 +18,17 @@ type snakeCaseTransformer struct {
 	cfg *Config
 }
 
-func (t *snakeCaseTransformer) Transform(ctx context.Context, in string) (string, error) {
-	if len(in) > t.cfg.MaxLen {
+func (t *snakeCaseTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
+	split := t.cfg.Tokenize(in.Message)
+	out := strings.Join(split, "_")
+
+	if len(out) > t.cfg.MaxBytes {
 		return in, nil
 	}
-
-	split := t.cfg.Tokenize(in)
-	out := strings.Join(split, "_")
 	if ok, err := t.cfg.Source.Valid(ctx, out); !ok || err != nil {
 		return in, err
 	}
 
-	return out, nil
+	in.setAndIncrement(out)
+	return in, nil
 }

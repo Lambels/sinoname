@@ -112,11 +112,16 @@ func (g *Generator) WithLayers(lFact ...LayerFactory) *Generator {
 // Generate passes the in field through the pipeline of transformers. The process can be
 // aborted by cancelling the context passed.
 func (g *Generator) Generate(ctx context.Context, in string) ([]string, error) {
-	if len(in) > g.cfg.MaxLen {
+	if len(in) > g.cfg.MaxBytes {
 		return nil, errors.New("sinoname: value is too long")
 	}
 
-	inC, clnUp, err := g.layers.Run(ctx, in)
+	msgPacket := MessagePacket{
+		Message: in,
+		Changes: 0,
+		Skip:    0,
+	}
+	inC, clnUp, err := g.layers.Run(ctx, msgPacket)
 	if err != nil {
 		clnUp()
 		return nil, err
@@ -134,11 +139,11 @@ L:
 			return nil, ctx.Err()
 
 		case val, ok := <-inC:
-			if readVals[val] {
+			if readVals[val.Message] {
 				continue
 			}
 			if g.cfg.PreventDuplicates {
-				readVals[val] = true
+				readVals[val.Message] = true
 			}
 
 			// increment read here so we dont have to wait for next itteration
@@ -150,11 +155,11 @@ L:
 			if read == g.cfg.MaxVals || !ok {
 				// last value.
 				if ok {
-					vals = append(vals, val)
+					vals = append(vals, val.Message)
 				}
 				break L
 			}
-			vals = append(vals, val)
+			vals = append(vals, val.Message)
 		}
 	}
 

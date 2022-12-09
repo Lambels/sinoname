@@ -26,28 +26,28 @@ func TestSymbol(t *testing.T) {
 		}
 		src := newStaticSource()
 		cfg := &Config{
-			MaxLen:  testConfig.MaxLen,
-			MaxVals: testConfig.MaxVals,
-			Source:  src,
+			MaxBytes: testConfig.MaxBytes,
+			MaxVals:  testConfig.MaxVals,
+			Source:   src,
 		}
 
 		tr, _ := SymbolTransformer('.', 3)(cfg)
 		for _, vWant := range vals {
-			vGot, err := tr.Transform(context.Background(), "ABC")
+			vGot, err := tr.Transform(context.Background(), MessagePacket{"ABC", 0, 0})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if vGot != vWant {
+			if vGot.Message != vWant {
 				t.Fatal("got:", vGot, "but want:", vWant)
 			}
-			src.addValue(vGot)
+			src.addValue(vGot.Message)
 		}
 
-		v, err := tr.Transform(context.Background(), "ABC")
+		v, err := tr.Transform(context.Background(), MessagePacket{"ABC", 0, 0})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if v != "ABC" {
+		if v.Message != "ABC" {
 			t.Fatal("last iteration wasnt set to initiall value")
 		}
 	})
@@ -60,19 +60,19 @@ func TestSymbol(t *testing.T) {
 			"ABC.",
 		)
 		cfg := &Config{
-			MaxLen:  testConfig.MaxLen,
-			MaxVals: testConfig.MaxVals,
-			Source:  src,
+			MaxBytes: testConfig.MaxBytes,
+			MaxVals:  testConfig.MaxVals,
+			Source:   src,
 		}
 
 		// last itteration should roll to initiall value because no more points can be generated
 		// even if possible.
 		tr, _ := SymbolTransformer('.', 1)(cfg)
-		v, err := tr.Transform(context.Background(), "ABC")
+		v, err := tr.Transform(context.Background(), MessagePacket{"ABC", 0, 0})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if v != "ABC" {
+		if v.Message != "ABC" {
 			t.Fatal("last iteration wasnt set to initiall value")
 		}
 	})

@@ -8,6 +8,9 @@ import (
 	"gonum.org/v1/gonum/stat/combin"
 )
 
+//TODO: test if for each symbol to add we can generate a random permutation and then
+//TODO: check for it (and skip it) in the sequential passings of the permuations to randomise things up.
+
 // SymbolTransformer adds symbol to the incoming word till it fills up any possible
 // positions, starting with adding 1 symbol till len(incoming word) - 1  symbols.
 //
@@ -41,15 +44,15 @@ type symbolTransformer struct {
 	maxSymbols int
 }
 
-func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, error) {
+func (t *symbolTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
 	var g *combin.CombinationGenerator
-	n := len(in)
+	n := len(in.Message)
 	nr := utf8.RuneLen(t.symbol)
 
 	for symbolsToAdd := 1; symbolsToAdd < n+1; symbolsToAdd++ {
 		// dont bother to generate and allocate buffer if we cant acomodate size after
 		// the symbols are added.
-		if n+symbolsToAdd*nr > t.cfg.MaxLen {
+		if n+symbolsToAdd*nr > t.cfg.MaxBytes {
 			return in, nil
 		}
 		if symbolsToAdd > t.maxSymbols && t.maxSymbols != 0 {
@@ -62,7 +65,7 @@ func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, e
 		for g.Next() {
 			select {
 			case <-ctx.Done():
-				return "", ctx.Err()
+				return MessagePacket{}, ctx.Err()
 			default:
 			}
 
@@ -72,24 +75,25 @@ func (t *symbolTransformer) Transform(ctx context.Context, in string) (string, e
 			g.Combination(comb)
 			var prevJ int
 			for i, j := range comb {
-				b.WriteString(in[prevJ:j])
+				b.WriteString(in.Message[prevJ:j])
 				b.WriteRune(t.symbol)
 				prevJ = j
 
 				// last itteration, write remaining string.
 				if i == len(comb)-1 {
-					b.WriteString(in[j:])
+					b.WriteString(in.Message[j:])
 				}
 			}
 
 			out := b.String()
 			ok, err := t.cfg.Source.Valid(ctx, out)
 			if err != nil {
-				return "", err
+				return MessagePacket{}, err
 			}
 
 			if ok {
-				return out, nil
+				in.setAndIncrement(out)
+				return in, nil
 			}
 		}
 	}

@@ -17,7 +17,7 @@ var ErrSkip error = errors.New("skip output")
 // A trasnformer should handle context cancellations if possible and return any
 // errors from the source.
 type Transformer interface {
-	Transform(ctx context.Context, in string) (string, error)
+	Transform(ctx context.Context, in MessagePacket) (MessagePacket, error)
 }
 
 // TransformerFactory takes in a config object and returns a transformer and a
@@ -45,7 +45,7 @@ const (
 	circumfix
 )
 
-func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where affix, base, sep string) (string, error) {
+func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where affix, base MessagePacket, sep string) (MessagePacket, error) {
 	n := len(chunk)
 
 	// start with random offset to amplify randomness.
@@ -55,17 +55,18 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 	for _, i := range chunk {
 		select {
 		case <-ctx.Done():
-			return "", ctx.Err()
+			return MessagePacket{}, ctx.Err()
 		default:
 		}
 
 		add := cfg.Adjectives[i+padding]
-		out, ok, err := applyAffix(ctx, cfg, where, base, sep, add)
+		out, ok, err := applyAffix(ctx, cfg, where, base.Message, sep, add)
 		if ok {
-			return out, nil
+			base.setAndIncrement(out)
+			return base, nil
 		}
 		if err != nil && err != errTooLong {
-			return out, err
+			return MessagePacket{}, err
 		}
 	}
 
@@ -81,17 +82,18 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 		for _, j := range chunk {
 			select {
 			case <-ctx.Done():
-				return "", ctx.Err()
+				return MessagePacket{}, ctx.Err()
 			default:
 			}
 
 			add := cfg.Adjectives[j+padding]
-			out, ok, err := applyAffix(ctx, cfg, where, base, sep, add)
+			out, ok, err := applyAffix(ctx, cfg, where, base.Message, sep, add)
 			if ok {
-				return out, nil
+				base.setAndIncrement(out)
+				return base, nil
 			}
 			if err != nil && err != errTooLong {
-				return out, err
+				return MessagePacket{}, err
 			}
 		}
 		// re shuffle.
@@ -110,12 +112,13 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 
 		for i := range vals {
 			add := cfg.Adjectives[i+chunks*n]
-			out, ok, err := applyAffix(ctx, cfg, where, base, sep, add)
+			out, ok, err := applyAffix(ctx, cfg, where, base.Message, sep, add)
 			if ok {
-				return out, nil
+				base.setAndIncrement(out)
+				return base, nil
 			}
 			if err != nil && err != errTooLong {
-				return out, err
+				return MessagePacket{}, err
 			}
 		}
 	}
@@ -131,7 +134,7 @@ func applyAffix(ctx context.Context, cfg *Config, where affix, base, sep, add st
 	switch where {
 	case suffix:
 		// too long.
-		if len(base)+len(sep)+len(add) > cfg.MaxLen {
+		if len(base)+len(sep)+len(add) > cfg.MaxBytes {
 			return "", false, errTooLong
 		}
 
@@ -141,7 +144,7 @@ func applyAffix(ctx context.Context, cfg *Config, where affix, base, sep, add st
 
 	case prefix:
 		// too long.
-		if len(base)+len(sep)+len(add) > cfg.MaxLen {
+		if len(base)+len(sep)+len(add) > cfg.MaxBytes {
 			return "", false, errTooLong
 		}
 
@@ -151,7 +154,7 @@ func applyAffix(ctx context.Context, cfg *Config, where affix, base, sep, add st
 
 	case circumfix:
 		// too long.
-		if len(base)+2*len(sep)+2*len(add) > cfg.MaxLen {
+		if len(base)+2*len(sep)+2*len(add) > cfg.MaxBytes {
 			return "", false, errTooLong
 		}
 
