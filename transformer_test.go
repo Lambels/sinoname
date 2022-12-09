@@ -21,7 +21,10 @@ func TestTransformer(t *testing.T) {
 		testCase{t: SnakeCase, in: "-.snake -case test", out: "snake_case_test"},
 
 		testCase{t: Plural, in: "plural test", out: "plural tests"},
+
 		testCase{t: SymbolTransformer('.', 1), in: "ABC", out: ".ABC"},
+
+		testCase{t: ShuffleOrder("_"), in: "PatrickArvatu", out: "Patrick_Arvatu"},
 
 		testCase{t: NumbersPrefix("-"), in: "Patrick1234", out: "1234-Patrick"},
 		testCase{t: NumbersSuffix("-"), in: "Patrick1234", out: "Patrick-1234"},
@@ -52,13 +55,13 @@ func TestTransformer(t *testing.T) {
 
 		tr, _ := tc.t(testConfig)
 
-		out, err := tr.Transform(tc.ctx, tc.in)
+		out, err := tr.Transform(tc.ctx, MessagePacket{tc.in, 0, 0})
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if out != tc.out {
-			t.Fatal("expected:", tc.out, "but got", out)
+		if out.Message != tc.out {
+			t.Fatalf("%#v: expected: %v but got %v", tr, tc.out, out)
 		}
 	}
 }
