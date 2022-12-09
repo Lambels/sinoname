@@ -21,75 +21,54 @@ type TransformerLayer struct {
 	transformerFactories []TransformerFactory
 }
 
-func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan string) (<-chan string, error) {
+func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-chan MessagePacket) (<-chan MessagePacket, error) {
 	if len(l.transformers) == 0 && len(l.transformerFactories) == 0 {
 		return nil, errors.New("sinoname: layer has no transformers")
 	}
 
 	// local copy of statefull trasnformers.
-	statefullTransformers := l.getStatefullTransformers()
+	transformers := l.getStatefullTransformers()
+	transformers = append(transformers, l.transformers...)
 
-	outC := make(chan string)
-	// wg is used to monitor the local go routines of this layer.
-	var wg sync.WaitGroup
-	pumpOut := func(ctx context.Context, t Transformer, v string) func() error {
-		f := func() error {
-			defer wg.Done()
+	outC := make(chan MessagePacket)
+	handleValue := func(ctx context.Context, wg *sync.WaitGroup, _ int, v MessagePacket) error {
+		defer wg.Done()
 
-			val, err := t.Transform(ctx, v)
-			if err != nil {
-				if err == ErrSkip {
-					return nil
-				}
-				return err
-			}
+		select {
+		case outC <- v:
+			return nil
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	handleSkip := func(ctx context.Context, wg *sync.WaitGroup, id int, v MessagePacket) error {
+		defer wg.Done()
 
+		// layer skip (let this message pass through).
+		if id == -1 {
 			select {
+			case outC <- v:
+				return nil
 			case <-ctx.Done():
 				return ctx.Err()
-			case outC <- val:
-				return nil
 			}
 		}
-
-		return f
+		return nil
 	}
-
-	go func() {
-		// before the factory go-routine exits, either by a context cancelation or by the
-		// upstream's out channel closure, cleanup.
-		defer func() {
-			// wait for all the transformers to send their value before closing.
-			wg.Wait()
-			close(outC)
-		}()
-
-		for {
-			select {
-			// ctx close signals a deliberate close or that an error occured somewhere
-			// throughout the pipeline, eitherway stop layer.
-			case <-ctx.Done():
-				return
-			case v, ok := <-in:
-				if !ok {
-					return
-				}
-
-				wg.Add(len(l.transformers) + len(statefullTransformers))
-				for _, t := range l.transformers {
-					g.Go(
-						pumpOut(ctx, t, v),
-					)
-				}
-
-				for _, t := range statefullTransformers {
-					g.Go(
-						pumpOut(ctx, t, v),
-					)
-				}
-			}
-		}
-	}()
+	handleExit := func(wg *sync.WaitGroup, _ bool) {
+		wg.Wait()
+		close(outC)
+	}
+	broadcast := newPacketBroadcatser(
+		ctx,
+		in,
+		g,
+		transformers,
+		handleValue,
+		handleSkip,
+		handleExit,
+	)
+	broadcast.StartListen()
 
 	return outC, nil
 }
