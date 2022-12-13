@@ -5,133 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/goleak"
 	"golang.org/x/sync/errgroup"
 )
 
-func TestUnfiformLayerCloseProducerChannel(t *testing.T) {
-	t.Parallel()
-	t.Run("Without Values", func(t *testing.T) {
-		t.Parallel()
-		tr, _ := Noop(nil)
-		layer := newUniformLayer(tr)
-
-		producer := make(chan MessagePacket)
-		sink, err := layer.PumpOut(context.Background(), &errgroup.Group{}, producer)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		close(producer)
-		select {
-		case _, ok := <-sink:
-			if ok {
-				t.Fatal("recieved unexpected non close message")
-			}
-		case <-time.After(1 * time.Second):
-			t.Fatal("expected channel to be closed")
-		}
-	})
-
-	t.Run("With Values", func(t *testing.T) {
-		t.Parallel()
-		layer := newUniformLayer(
-			timeoutTransformer{add: "1", d: 1 * time.Second},
-			timeoutTransformer{add: "2", d: 2 * time.Second},
-		)
-
-		producer := make(chan MessagePacket, 1)
-		producer <- MessagePacket{}
-		close(producer)
-
-		sink, err := layer.PumpOut(context.Background(), &errgroup.Group{}, producer)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		for i := 0; i < 3; i++ {
-			if i == 2 {
-				select {
-				case _, ok := <-sink:
-					if ok {
-						t.Fatal("expected channel to be closed after messages read")
-					}
-				case <-time.After(1 * time.Second):
-					t.Fatal("channel should be closed imediately")
-				}
-				return
-			}
-
-			select {
-			case <-sink:
-				// values still recieved even if producer closed.
-			case <-time.After(3 * time.Second):
-				t.Fatal("values should be available at around 2 seconds")
-			}
-		}
-	})
-}
-
-func TestUniformLayerCancelCtx(t *testing.T) {
-	t.Run("Manual", func(t *testing.T) {
-		t.Parallel()
-		layer := newUniformLayer(
-			timeoutTransformer{add: "1", d: 1 * time.Microsecond},
-			timeoutTransformer{add: "2", d: 10 * time.Second},
-		)
-
-		producer := make(chan MessagePacket, 2)
-		producer <- MessagePacket{}
-		producer <- MessagePacket{}
-
-		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
-		sink, err := layer.PumpOut(ctx, &errgroup.Group{}, producer)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		<-ctx.Done()
-
-		select {
-		case _, ok := <-sink:
-			if ok {
-				t.Fatal("recieved unexpected non close message")
-			}
-		case <-time.After(1 * time.Second):
-			t.Fatal("expected sink to be closed")
-		}
-	})
-
-	t.Run("Error", func(t *testing.T) {
-		t.Parallel()
-		layer := newUniformLayer(
-			errTransformer{},
-			timeoutTransformer{add: "1", d: 1 * time.Second},
-		)
-
-		producer := make(chan MessagePacket, 1)
-		producer <- MessagePacket{}
-
-		g, ctx := errgroup.WithContext(context.Background())
-		sink, err := layer.PumpOut(ctx, g, producer)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		select {
-		case _, ok := <-sink:
-			if ok {
-				t.Fatal("recieved unexpected non close message")
-			}
-		case <-time.After(1 * time.Second):
-			t.Fatal("expected sink to be closed")
-		}
-	})
-}
-
 func TestUniformBatch(t *testing.T) {
-	t.Parallel()
+	defer goleak.VerifyNone(t)
 
 	producer := make(chan MessagePacket, 3)
 	producer <- MessagePacket{}
@@ -140,8 +19,8 @@ func TestUniformBatch(t *testing.T) {
 	close(producer)
 
 	layer := newUniformLayer(
-		timeoutTransformer{add: "1", d: 1 * time.Microsecond},
-		timeoutTransformer{add: "2", d: 1 * time.Second},
+		newTimeoutTransformer("1", 1*time.Microsecond),
+		newTimeoutTransformer("2", 1*time.Second),
 	)
 	sink, err := layer.PumpOut(context.Background(), &errgroup.Group{}, producer)
 	if err != nil {
@@ -167,11 +46,18 @@ func TestUniformBatch(t *testing.T) {
 
 }
 
-func newUniformLayer(t ...Transformer) *UniformTransformerLayer {
-	layer := UniformTransformerLayer{
-		transformers: make([]Transformer, 0),
+func newUniformLayer(tf ...TransformerFactory) *UniformTransformerLayer {
+	layer := &UniformTransformerLayer{
+		transformers:         make([]Transformer, len(tf)),
+		transformerFactories: make([]TransformerFactory, 0),
 	}
 
-	layer.transformers = append(layer.transformers, t...)
-	return &layer
+	for i, f := range tf {
+		t, statefull := f(testConfig)
+		if statefull {
+			layer.transformerFactories = append(layer.transformerFactories, f)
+		}
+		layer.transformers[i] = t
+	}
+	return layer
 }
