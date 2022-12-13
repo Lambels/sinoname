@@ -42,8 +42,6 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 		}
 	}
 	handleSkip := func(ctx context.Context, wg *sync.WaitGroup, id int, v MessagePacket) error {
-		defer wg.Done()
-
 		// layer skip (let this message pass through).
 		if id == -1 {
 			select {
@@ -53,6 +51,8 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 				return ctx.Err()
 			}
 		}
+
+		wg.Done()
 		return nil
 	}
 	handleExit := func(wg *sync.WaitGroup, _ bool) {
