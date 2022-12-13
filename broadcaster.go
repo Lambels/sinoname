@@ -213,8 +213,7 @@ func (b *packetBroadcaster) processValues(ch <-chan *waiter) func() error {
 					break
 				}
 
-				err = b.runWaiter(w)
-				if err != nil {
+				if err = b.runWaiter(w); err != nil {
 					return err
 				}
 				// shrink via reslicing (array wont grow allot)
