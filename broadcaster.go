@@ -186,6 +186,9 @@ func (s byIdV) Less(i, j int) bool { return s[i].idV < s[j].idV }
 func (b *packetBroadcaster) processValues(ch <-chan *waiter) func() error {
 	return func() (err error) {
 		var localIdV int
+		// waiterBuf acumultes un executed waiters which will execute in the future.
+		//
+		// each waiter in the buffer holds a slot in pWg.
 		waiterBuf := make([]*waiter, 0)
 
 		defer func() {
