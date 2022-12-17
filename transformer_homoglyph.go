@@ -153,7 +153,7 @@ func (t *homoglyphTransformer) Transform(ctx context.Context, in MessagePacket) 
 }
 
 // processFirst runs a copy on write run through s, allocating a buffer
-// with the capacity of maxBytes.
+// with the capacity of maxBytes if a value is modified.
 //
 // it returns a pointer to the allocated builder and the remaining string (unprocessed) +
 // any errors from the context.
@@ -185,10 +185,14 @@ func (t *homoglyphTransformer) processFirst(ctx context.Context, s string, confi
 		for _, r := range rs {
 			widthT += utf8.RuneLen(r)
 		}
-		if remWidth, widthRem := t.cfg.MaxBytes-len(s[:i]), widthT+len(s[i+width:]); remWidth-widthRem < 0 {
-			continue
+		// check if there is enough space for the change.
+		if t.cfg.MaxBytes > 0 {
+			if remWidth, widthRem := t.cfg.MaxBytes-len(s[:i]), widthT+len(s[i+width:]); remWidth-widthRem < 0 {
+				continue
+			}
 		}
 
+		// allocate buffer.
 		var b strings.Builder
 		if t.cfg.MaxBytes > 0 {
 			b.Grow(t.cfg.MaxBytes)
@@ -278,6 +282,7 @@ func (p *processNextIterator) Next() bool {
 	bufBytes := p.t.cfg.MaxBytes - p.b.Len()
 	switch n := bufBytes - len(p.next); {
 	case n > 0: // possible space for growth.
+		// enough space for the substitution.
 		if n+width-widthT >= 0 {
 			for _, r := range rs {
 				if r < utf8.RuneSelf {
