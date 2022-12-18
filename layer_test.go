@@ -71,7 +71,7 @@ type statefullTransformer struct {
 
 func (t *statefullTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
 	state := atomic.AddInt32(&t.state, 1)
-	in.setAndIncrement(fmt.Sprintf("%v:%d", in, state))
+	in.setAndIncrement(fmt.Sprintf("%v%d", in, state))
 	return in, nil
 }
 
@@ -88,6 +88,12 @@ type addTransformer struct {
 func (t addTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
 	in.setAndIncrement(in.Message + t.add)
 	return in, nil
+}
+
+func newAddTransformer(add string) TransformerFactory {
+	return func(cfg *Config) (Transformer, bool) {
+		return addTransformer{add: add}, false
+	}
 }
 
 func TestLayerCloseProducerChannel(t *testing.T) {
@@ -174,6 +180,66 @@ func TestLayerContextCancel(t *testing.T) {
 			ch <- MessagePacket{}
 
 			testLayerChanClose(t, context.Background(), layer, ch, 0, 0, 1*time.Second)
+		}
+	})
+}
+
+func TestLayerSkip(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	t.Run("Handle_Skip_Layers", func(t *testing.T) {
+		layers := []Layers{
+			[]Layer{
+				newTransformerLayer(newSkipTransformer("1", 2)),
+				newTransformerLayer(newAddTransformer("2")),
+				newTransformerLayer(newAddTransformer("2")),
+				newTransformerLayer(newAddTransformer("3")),
+			},
+			[]Layer{
+				newUniformLayer(newSkipTransformer("1", 2)),
+				newUniformLayer(newAddTransformer("2")),
+				newUniformLayer(newAddTransformer("2")),
+				newUniformLayer(newAddTransformer("3")),
+			},
+		}
+
+		for _, l := range layers {
+			recv, _, err := l.Run(context.Background(), MessagePacket{})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			v := <-recv
+			if v.Message[len(v.Message)-1] != '3' || v.Message[len(v.Message)-2] == '2' {
+				t.Fatal("didnt expect packet:", v)
+			}
+		}
+	})
+	t.Run("Handle_Skip_All_Layers", func(t *testing.T) {
+		layers := []Layers{
+			[]Layer{
+				newTransformerLayer(newSkipTransformer("1", 3)),
+				newTransformerLayer(newAddTransformer("2")),
+				newTransformerLayer(newAddTransformer("2")),
+				newTransformerLayer(newAddTransformer("2")),
+			},
+			[]Layer{
+				newUniformLayer(newSkipTransformer("1", 3)),
+				newUniformLayer(newAddTransformer("2")),
+				newUniformLayer(newAddTransformer("2")),
+				newUniformLayer(newAddTransformer("2")),
+			},
+		}
+
+		for _, l := range layers {
+			recv, _, err := l.Run(context.Background(), MessagePacket{})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			v := <-recv
+			if len(v.Message) != 1 || v.Message[0] != '1' {
+				t.Fatal("didnt expect packet:", v)
+			}
 		}
 	})
 }
