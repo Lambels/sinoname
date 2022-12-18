@@ -45,6 +45,8 @@ func TestTransformer(t *testing.T) {
 		testCase{t: AbreviationPrefix("", true), in: "Patrick Adrian Arvatu", out: "PAArvatu"},
 		testCase{t: AbreviationSuffix("", true), in: "Patrick Adrian Arvatu", out: "PatrickAA"},
 		testCase{t: AbreviationCircumfix("", true), in: "Patrick Adrian Arvatu", out: "PAA"},
+
+		testCase{t: Title, in: "123lambe3ls4", out: "123Lambe3ls4"},
 	)
 
 	// evaluate test cases.
