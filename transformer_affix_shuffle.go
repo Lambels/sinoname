@@ -57,10 +57,14 @@ type affixShuffleTransformer struct {
 
 func (t *affixShuffleTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
 	if v, ok := StringFromContext(ctx); ok {
-		out, ok, err := applyAffix(ctx, t.cfg, t.where, in.Message, t.sep, v)
-		if err != nil || ok {
-			in.setAndIncrement(out)
-			return in, err
+		out, ok := applyAffix(ctx, t.cfg, t.where, in.Message, t.sep, v)
+
+		if ok {
+			unique, err := t.cfg.Source.Valid(ctx, out)
+			if err != nil || unique {
+				in.setAndIncrement(out)
+				return in, err
+			}
 		}
 	}
 
@@ -68,5 +72,8 @@ func (t *affixShuffleTransformer) Transform(ctx context.Context, in MessagePacke
 	shuffle := t.cfg.getShuffle()
 	defer t.cfg.putShuffle(shuffle)
 
-	return applyAffixFromChunk(ctx, shuffle, t.cfg, t.where, in, t.sep)
+	f := func(i int) string {
+		return t.cfg.Adjectives[i]
+	}
+	return applyAffixFromChunk(ctx, t.cfg, shuffle, len(t.cfg.Adjectives), t.where, in, t.sep, f)
 }

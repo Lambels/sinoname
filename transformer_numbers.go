@@ -66,27 +66,22 @@ func (t *numbersTransformer) Transform(ctx context.Context, in MessagePacket) (M
 
 	if v, ok := NumberFromContext(ctx); ok {
 		num := strconv.Itoa(v)
-		out, ok, err := applyAffix(ctx, t.cfg, t.where, in.Message, t.sep, num)
+		out, ok := applyAffix(ctx, t.cfg, t.where, in.Message, t.sep, num)
 		if ok {
-			in.setAndIncrement(out)
-			return in, nil
-		}
-
-		if err != nil && err != errTooLong {
-			return MessagePacket{}, err
+			unique, err := t.cfg.Source.Valid(ctx, out)
+			if err != nil || unique {
+				in.setAndIncrement(out)
+				return in, err
+			}
 		}
 	}
 
 	stripped, num := t.cfg.StripNumbers(in.Message)
-	out, ok, err := applyAffix(ctx, t.cfg, t.where, stripped, t.sep, num)
+	// no point in checking the ok value since len(stripped) + len(num) == len(in.Message)
+	out, _ := applyAffix(ctx, t.cfg, t.where, stripped, t.sep, num)
+	ok, err := t.cfg.Source.Valid(ctx, out)
 	if ok {
 		in.setAndIncrement(out)
-		return in, nil
-	}
-
-	// errTooLong voided.
-	if err == errTooLong {
-		err = nil
 	}
 
 	return in, err
