@@ -45,13 +45,15 @@ const (
 	circumfix
 )
 
-func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where affix, base MessagePacket, sep string) (MessagePacket, error) {
+func applyAffixFromChunk(ctx context.Context, cfg *Config, chunk []int, nVals int, where affix, base MessagePacket, sep string, f func(int) string) (MessagePacket, error) {
 	n := len(chunk)
+	chunks := nVals / n // the number of chunks possible in the the range of values.
 
 	// start with random offset to amplify randomness.
 	offset := cfg.RandSrc.Intn(chunks)
 	padding := offset * n
 
+	// process first offset.
 	for _, i := range chunk {
 		select {
 		case <-ctx.Done():
@@ -59,19 +61,20 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 		default:
 		}
 
-		add := cfg.Adjectives[i+padding]
-		out, ok, err := applyAffix(ctx, cfg, where, base.Message, sep, add)
-		if ok {
-			base.setAndIncrement(out)
-			return base, nil
+		add := f(i + padding)
+		out, ok := applyAffix(ctx, cfg, where, base.Message, sep, add)
+		if !ok { // too long, continue.
+			continue
 		}
-		if err != nil && err != errTooLong {
-			return MessagePacket{}, err
+		if ok, err := cfg.Source.Valid(ctx, out); err != nil || ok {
+			base.setAndIncrement(out)
+			return base, err
 		}
 	}
 
 	rand.Shuffle(len(chunk), func(i, j int) { chunk[i], chunk[j] = chunk[j], chunk[i] })
 
+	// process remaining offsets.
 	for i := 0; i < chunks; i++ {
 		// skip random offset (already tried).
 		if i == offset {
@@ -86,14 +89,14 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 			default:
 			}
 
-			add := cfg.Adjectives[j+padding]
-			out, ok, err := applyAffix(ctx, cfg, where, base.Message, sep, add)
-			if ok {
-				base.setAndIncrement(out)
-				return base, nil
+			add := f(j + padding)
+			out, ok := applyAffix(ctx, cfg, where, base.Message, sep, add)
+			if !ok { // too long, continue.
+				continue
 			}
-			if err != nil && err != errTooLong {
-				return MessagePacket{}, err
+			if ok, err := cfg.Source.Valid(ctx, out); err != nil || ok {
+				base.setAndIncrement(out)
+				return base, err
 			}
 		}
 		// re shuffle.
@@ -101,7 +104,7 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 	}
 
 	// finish off any values not cought in the chunks.
-	remX := len(cfg.Adjectives) % n
+	remX := nVals % n
 	if remX > 0 {
 		vals := make([]int, remX)
 		for i := range vals {
@@ -111,14 +114,14 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 		rand.Shuffle(len(vals), func(i, j int) { vals[i], vals[j] = vals[j], vals[i] })
 
 		for i := range vals {
-			add := cfg.Adjectives[i+chunks*n]
-			out, ok, err := applyAffix(ctx, cfg, where, base.Message, sep, add)
-			if ok {
-				base.setAndIncrement(out)
-				return base, nil
+			add := f(i + chunks*n)
+			out, ok := applyAffix(ctx, cfg, where, base.Message, sep, add)
+			if !ok { // too long, continue.
+				continue
 			}
-			if err != nil && err != errTooLong {
-				return MessagePacket{}, err
+			if ok, err := cfg.Source.Valid(ctx, out); err != nil || ok {
+				base.setAndIncrement(out)
+				return base, err
 			}
 		}
 	}
@@ -130,39 +133,36 @@ func applyAffixFromChunk(ctx context.Context, chunk []int, cfg *Config, where af
 // to high.
 //
 // If an error occurs the error is returned, if the value is valid no error is retuned along side true.
-func applyAffix(ctx context.Context, cfg *Config, where affix, base, sep, add string) (string, bool, error) {
+func applyAffix(ctx context.Context, cfg *Config, where affix, base, sep, add string) (string, bool) {
 	switch where {
 	case suffix:
 		// too long.
 		if len(base)+len(sep)+len(add) > cfg.MaxBytes {
-			return "", false, errTooLong
+			return "", false
 		}
 
 		out := base + sep + add
-		ok, err := cfg.Source.Valid(ctx, out)
-		return out, ok, err
+		return out, true
 
 	case prefix:
 		// too long.
 		if len(base)+len(sep)+len(add) > cfg.MaxBytes {
-			return "", false, errTooLong
+			return "", false
 		}
 
 		out := add + sep + base
-		ok, err := cfg.Source.Valid(ctx, out)
-		return out, ok, err
+		return out, true
 
 	case circumfix:
 		// too long.
 		if len(base)+2*len(sep)+2*len(add) > cfg.MaxBytes {
-			return "", false, errTooLong
+			return "", false
 		}
 
 		out := add + sep + base + sep + add
-		ok, err := cfg.Source.Valid(ctx, out)
-		return out, ok, err
+		return out, true
 
 	default:
-		return "", false, nil
+		return "", false
 	}
 }
