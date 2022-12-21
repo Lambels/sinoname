@@ -46,6 +46,7 @@ func TestBroadcasterOrder(t *testing.T) {
 
 	out := newPacketBroadcatser(
 		context.Background(),
+		testConfig,
 		ch,
 		&errgroup.Group{},
 		[]Transformer{varSleepTransformer{5 * time.Second}},

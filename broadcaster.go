@@ -31,6 +31,7 @@ type waiter struct {
 // packetBroadcaster broadcasts packages to the transformers.
 type packetBroadcaster struct {
 	src <-chan MessagePacket
+	cfg *Config
 	ctx context.Context
 
 	// lWg is a local waitgroup used to monitor how many transformer workers are
@@ -65,7 +66,7 @@ type packetBroadcaster struct {
 	handleExit handlerExit
 }
 
-func newPacketBroadcatser(ctx context.Context, src <-chan MessagePacket, g *errgroup.Group, t []Transformer, handleValue, handleSkip handlerValue, handleExit handlerExit) *packetBroadcaster {
+func newPacketBroadcatser(ctx context.Context, cfg *Config, src <-chan MessagePacket, g *errgroup.Group, t []Transformer, handleValue, handleSkip handlerValue, handleExit handlerExit) *packetBroadcaster {
 	recievers := make([]chan *waiter, len(t))
 	for i := range recievers {
 		recievers[i] = make(chan *waiter)
@@ -73,6 +74,7 @@ func newPacketBroadcatser(ctx context.Context, src <-chan MessagePacket, g *errg
 
 	return &packetBroadcaster{
 		src: src,
+		cfg: cfg,
 		ctx: ctx,
 
 		lWg:    sync.WaitGroup{},
@@ -113,6 +115,10 @@ func (b *packetBroadcaster) listen() {
 				return
 			}
 
+			if v.Changes > b.cfg.MaxChanges {
+				b.handleSkip(b.ctx, nil, -1, v)
+				continue
+			}
 			if v.Skip > 0 {
 				v.Skip--
 				b.handleSkip(b.ctx, nil, -1, v)

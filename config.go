@@ -16,6 +16,12 @@ type Config struct {
 	// The consumer reads up to MaxVals values.
 	MaxVals int
 
+	// MaxChanges is used to determine the max number of changes which can be
+	// done on a message.
+	//
+	// Each modification by a transformer is marked as a change.
+	MaxChanges int
+
 	// PreventDefault prevents the default value from being read by the consumer.
 	PreventDefault bool
 
