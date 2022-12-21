@@ -6,9 +6,9 @@ package rng
 // efficient manner.
 type PRNG interface {
 	// Next generates the next number and indicates that the range has been reached.
-	Next() (uint, bool)
+	Next() (int, bool)
 	// Seed re seeds the value.
-	Seed(uint)
+	Seed(int)
 	// Range gives the PRNG range.
-	Range() uint
+	Range() int
 }
