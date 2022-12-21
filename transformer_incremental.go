@@ -61,7 +61,7 @@ func (t *incrementalTransformer) Transform(ctx context.Context, in MessagePacket
 	for i := 1; i <= t.n; i++ {
 		add := strconv.Itoa(i)
 
-		out, ok := applyAffix(ctx, t.cfg, t.where, in.Message, t.sep, add)
+		out, ok := applyAffix(t.cfg, t.where, in.Message, t.sep, add)
 		if !ok {
 			// retrun early even if value too long.
 			// values only continue growing, no point in continuing.

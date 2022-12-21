@@ -57,7 +57,7 @@ type affixShuffleTransformer struct {
 
 func (t *affixShuffleTransformer) Transform(ctx context.Context, in MessagePacket) (MessagePacket, error) {
 	if v, ok := StringFromContext(ctx); ok {
-		out, ok := applyAffix(ctx, t.cfg, t.where, in.Message, t.sep, v)
+		out, ok := applyAffix(t.cfg, t.where, in.Message, t.sep, v)
 
 		if ok {
 			unique, err := t.cfg.Source.Valid(ctx, out)
@@ -68,12 +68,11 @@ func (t *affixShuffleTransformer) Transform(ctx context.Context, in MessagePacke
 		}
 	}
 
-	// get a single chunk and re use it untill all options exhausted or match found.
-	shuffle := t.cfg.getShuffle()
-	defer t.cfg.putShuffle(shuffle)
+	prng, clnup := t.cfg.GetPRNG(len(t.cfg.Adjectives))
+	defer clnup()
 
 	f := func(i int) string {
 		return t.cfg.Adjectives[i]
 	}
-	return applyAffixFromChunk(ctx, t.cfg, shuffle, len(t.cfg.Adjectives), t.where, in, t.sep, f)
+	return applyAffixFromPRNG(ctx, t.cfg, prng, len(t.cfg.Adjectives), t.where, in, t.sep, f)
 }

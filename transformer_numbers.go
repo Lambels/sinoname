@@ -66,7 +66,7 @@ func (t *numbersTransformer) Transform(ctx context.Context, in MessagePacket) (M
 
 	if v, ok := NumberFromContext(ctx); ok {
 		num := strconv.Itoa(v)
-		out, ok := applyAffix(ctx, t.cfg, t.where, in.Message, t.sep, num)
+		out, ok := applyAffix(t.cfg, t.where, in.Message, t.sep, num)
 		if ok {
 			unique, err := t.cfg.Source.Valid(ctx, out)
 			if err != nil || unique {
@@ -78,7 +78,7 @@ func (t *numbersTransformer) Transform(ctx context.Context, in MessagePacket) (M
 
 	stripped, num := t.cfg.StripNumbers(in.Message)
 	// no point in checking the ok value since len(stripped) + len(num) == len(in.Message)
-	out, _ := applyAffix(ctx, t.cfg, t.where, stripped, t.sep, num)
+	out, _ := applyAffix(t.cfg, t.where, stripped, t.sep, num)
 	ok, err := t.cfg.Source.Valid(ctx, out)
 	if ok {
 		in.setAndIncrement(out)
