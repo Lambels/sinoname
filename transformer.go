@@ -3,7 +3,9 @@ package sinoname
 import (
 	"context"
 	"errors"
-	"math/rand"
+	"time"
+
+	"github.com/Lambels/sinoname/rng"
 )
 
 // ErrSkip should be used by transformers to skip the output and not pass it
@@ -45,95 +47,77 @@ const (
 	circumfix
 )
 
-func applyAffixFromChunk(ctx context.Context, cfg *Config, chunk []int, nVals int, where affix, base MessagePacket, sep string, f func(int) string) (MessagePacket, error) {
-	n := len(chunk)
-	chunks := nVals / n // the number of chunks possible in the the range of values.
+func applyAffixFromPRNG(ctx context.Context, cfg *Config, gen rng.PRNG, nVals int, where affix, base MessagePacket, sep string, f func(int) string) (MessagePacket, error) {
+	offsets := nVals / gen.Range()
 
-	// start with random offset to amplify randomness.
-	offset := cfg.RandSrc.Intn(chunks)
-	padding := offset * n
+	randOffset := cfg.RandSrc.Intn(offsets)
+	out, err, done := offsetPRNG(ctx, cfg, randOffset*gen.Range(), gen, where, base, sep, f)
+	if done {
+		return out, err
+	}
 
-	// process first offset.
-	for _, i := range chunk {
+	for i := 0; i <= offsets; i++ {
+		// skip random offset.
+		if i == randOffset {
+			continue
+		}
+
+		gen.Seed(time.Now().Nanosecond())
+		out, err, done := offsetPRNG(ctx, cfg, i*gen.Range(), gen, where, base, sep, f)
+		if done {
+			return out, err
+		}
+	}
+
+	// finish off values not cought by range.
+	remVals := nVals % gen.Range()
+	if remVals == 0 {
+		return base, nil
+	}
+
+	prngRemVals, clnup := cfg.GetPRNG(remVals)
+	defer clnup()
+
+	return applyAffixFromPRNG(ctx, cfg, prngRemVals, remVals, where, base, sep, f)
+}
+
+func offsetPRNG(ctx context.Context, cfg *Config, offset int, gen rng.PRNG, where affix, base MessagePacket, sep string, f func(int) string) (MessagePacket, error, bool) {
+	for {
 		select {
 		case <-ctx.Done():
-			return MessagePacket{}, ctx.Err()
+			return base, ctx.Err(), true
 		default:
 		}
 
-		add := f(i + padding)
-		out, ok := applyAffix(ctx, cfg, where, base.Message, sep, add)
-		if !ok { // too long, continue.
+		n, done := gen.Next()
+		add := f(n + offset)
+		out, ok := applyAffix(cfg, where, base.Message, sep, add)
+
+		if !ok { // if value is too long return if done or continue.
+			if done {
+				return base, ctx.Err(), false
+			}
 			continue
 		}
+
+		// return if value is valid or error from source.
 		if ok, err := cfg.Source.Valid(ctx, out); err != nil || ok {
 			base.setAndIncrement(out)
-			return base, err
+			return base, err, true
+		}
+
+		// return if done.
+		if done {
+			return base, ctx.Err(), false
 		}
 	}
-
-	rand.Shuffle(len(chunk), func(i, j int) { chunk[i], chunk[j] = chunk[j], chunk[i] })
-
-	// process remaining offsets.
-	for i := 0; i < chunks; i++ {
-		// skip random offset (already tried).
-		if i == offset {
-			continue
-		}
-
-		padding = i * n
-		for _, j := range chunk {
-			select {
-			case <-ctx.Done():
-				return MessagePacket{}, ctx.Err()
-			default:
-			}
-
-			add := f(j + padding)
-			out, ok := applyAffix(ctx, cfg, where, base.Message, sep, add)
-			if !ok { // too long, continue.
-				continue
-			}
-			if ok, err := cfg.Source.Valid(ctx, out); err != nil || ok {
-				base.setAndIncrement(out)
-				return base, err
-			}
-		}
-		// re shuffle.
-		rand.Shuffle(len(chunk), func(i, j int) { chunk[i], chunk[j] = chunk[j], chunk[i] })
-	}
-
-	// finish off any values not cought in the chunks.
-	remX := nVals % n
-	if remX > 0 {
-		vals := make([]int, remX)
-		for i := range vals {
-			vals[i] = i
-		}
-
-		rand.Shuffle(len(vals), func(i, j int) { vals[i], vals[j] = vals[j], vals[i] })
-
-		for i := range vals {
-			add := f(i + chunks*n)
-			out, ok := applyAffix(ctx, cfg, where, base.Message, sep, add)
-			if !ok { // too long, continue.
-				continue
-			}
-			if ok, err := cfg.Source.Valid(ctx, out); err != nil || ok {
-				base.setAndIncrement(out)
-				return base, err
-			}
-		}
-	}
-
-	return base, nil
 }
 
 // applyAffix applies the specified affix to the base. It returns "", false, nil if the lenght is
 // to high.
 //
 // If an error occurs the error is returned, if the value is valid no error is retuned along side true.
-func applyAffix(ctx context.Context, cfg *Config, where affix, base, sep, add string) (string, bool) {
+func applyAffix(cfg *Config, where affix, base, sep, add string) (string, bool) {
 	switch where {
 	case suffix:
 		// too long.
