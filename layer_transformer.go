@@ -61,6 +61,7 @@ func (l *TransformerLayer) PumpOut(ctx context.Context, g *errgroup.Group, in <-
 	}
 	broadcast := newPacketBroadcatser(
 		ctx,
+		l.cfg,
 		in,
 		g,
 		transformers,
