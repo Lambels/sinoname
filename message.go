@@ -2,6 +2,7 @@ package sinoname
 
 import "fmt"
 
+// MessagePacket represents a message passed through the pipeline.
 type MessagePacket struct {
 	// Copy of the actuall message.
 	Message string
