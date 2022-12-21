@@ -1,6 +1,8 @@
 package rng
 
-import "math/rand"
+import (
+	"math/rand"
+)
 
 var _ PRNG = (*UniqueRangeGen)(nil)
 
@@ -9,10 +11,10 @@ var _ PRNG = (*UniqueRangeGen)(nil)
 type UniqueRangeGen struct {
 	vals map[int]struct{}
 	n    int
-	src  rand.Rand
+	src  *rand.Rand
 }
 
-func NewUniqueRangeGen(src rand.Rand, n int) *UniqueRangeGen {
+func NewUniqueRangeGen(src *rand.Rand, n int) *UniqueRangeGen {
 	return &UniqueRangeGen{
 		vals: make(map[int]struct{}),
 		n:    n,
@@ -21,7 +23,7 @@ func NewUniqueRangeGen(src rand.Rand, n int) *UniqueRangeGen {
 }
 
 // Next advances the generator and generates a new number.
-func (g *UniqueRangeGen) Next() (uint, bool) {
+func (g *UniqueRangeGen) Next() (int, bool) {
 	if len(g.vals) == g.n {
 		return 0, true
 	}
@@ -31,15 +33,15 @@ func (g *UniqueRangeGen) Next() (uint, bool) {
 		r = g.src.Intn(g.n)
 	}
 
-	return uint(r), len(g.vals) == g.n
+	return r, len(g.vals) == g.n
 }
 
 // Seed re seeds the source.
-func (g *UniqueRangeGen) Seed(seed uint) {
+func (g *UniqueRangeGen) Seed(seed int) {
 	g.src.Seed(int64(seed))
 }
 
 // Range outputs n. [0, n)
-func (g *UniqueRangeGen) Range() uint {
-	return uint(g.n)
+func (g *UniqueRangeGen) Range() int {
+	return g.n
 }
